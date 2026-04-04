@@ -6,9 +6,7 @@
 
 > The vault is the single source of truth. Any agent reads from it, plans against it, executes, and hands control back through it.
 
-Meridian is a framework for Human↔Agent collaboration. It uses an Obsidian vault as shared state between humans and any AI agent — Claude Code, Cursor, a GPT, a CLI script. Agents don't share memory or APIs. They share the vault.
-
-Like the Prime Meridian (0° longitude, Greenwich) — a universal reference line no single navigator owns, but every navigator adopts. Implement five primitives and you're in. No plugin, no API, no shared runtime.
+Meridian is a framework for Human ↔ Agent collaboration. It uses an Obsidian vault as shared state between humans and any AI agent — Claude Code, Cursor, a GPT, a CLI script. Agents don't share memory or APIs. They share the vault.
 
 → [Full concepts and philosophy](docs/concepts.md)
 
