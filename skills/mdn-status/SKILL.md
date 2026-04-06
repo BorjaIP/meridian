@@ -24,7 +24,7 @@ description: >
 Read `${XDG_CONFIG_HOME:-~/.config}/meridian/config.md`. Extract `vault`, `date-format`. Run Date generation snippet → `<NOW>`. If missing: tell user to run `/mdn-init`.
 
 ### Step 1 — Discover project notes
-Glob `<vault>/meridian/*/project.md`. Filter to `status: active` in frontmatter. If `project:` given, filter to that slug. If none found: report and stop.
+Glob `<vault>/meridian/*/PROJECT.md`. Filter to `status: active` in frontmatter. If `project:` given, filter to that slug. If none found: report and stop.
 
 ### Step 2 — Count tasks per project
 For each project note, scan `## Tasks`. Parse `owner::` and `status::` from all task lines (`- [ ]` and `- [x]`). Build count map:
@@ -62,5 +62,5 @@ Omit zero rows. Omit "Needs your attention" if empty. If `project:` given, also 
 
 ## Meridian protocol reference
 
-- Project notes: `<vault>/meridian/*/project.md` with `status: active`
+- Project notes: `<vault>/meridian/*/PROJECT.md` with `status: active`
 - Task inline fields: `key::value`

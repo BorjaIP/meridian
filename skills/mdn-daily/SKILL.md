@@ -35,7 +35,7 @@ No arguments. Always scans all active projects.
 Read `${XDG_CONFIG_HOME:-~/.config}/meridian/config.md`. Extract `vault`. Run Date generation snippet → `<NOW>`. If missing: tell user to run `/mdn-init`.
 
 ### Step 1 — Discover active projects
-Glob `<vault>/meridian/*/project.md`. Filter to `status: active` frontmatter.
+Glob `<vault>/meridian/*/PROJECT.md`. Filter to `status: active` frontmatter.
 
 ### Step 2 — Collect tasks per project
 For each project note, scan `## Tasks` into five buckets:
@@ -95,5 +95,5 @@ Omit zero-count segments.
 
 ## Meridian protocol reference
 
-- Project notes: `<vault>/meridian/*/project.md` with `status: active`
+- Project notes: `<vault>/meridian/*/PROJECT.md` with `status: active`
 - Task inline fields: `key::value`

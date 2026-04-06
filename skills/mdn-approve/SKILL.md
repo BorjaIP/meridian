@@ -26,7 +26,7 @@ description: >
 Read `${XDG_CONFIG_HOME:-~/.config}/meridian/config.md`. Extract `vault`. Run Date generation snippet → `<NOW>`. If missing: tell user to run `/mdn-init`.
 
 ### Step 1 — Find project note
-Read `<vault>/meridian/<slug>/project.md`. Verify `project: <slug>` in frontmatter. If missing: suggest `/mdn-init name:<slug>`.
+Read `<vault>/meridian/<slug>/PROJECT.md`. Verify `project: <slug>` in frontmatter. If missing: suggest `/mdn-init name:<slug>`.
 
 ### Step 2 — Find the review task
 Scan `## Tasks`:
@@ -52,12 +52,13 @@ Resolve `<vault>/meridian/<slug>/plans/<plan-name>.md`. Find `^status:\s*.*$` in
 
 ### Step 5 — Ensure agent task exists
 
-**Case A — agent task exists** (`owner::agent` with matching `**Artifact:**`, any status):
+**Case A — agent task exists** (`owner::agent` with matching `**Artifact:**`, `status` in `{planning, review, backlog}`):
+- (If the matched task is `status::done` or `status::in-progress`: print "Plan already executed or in progress — nothing to approve." and stop.)
 - Replace its status with `status::approved`
 - Upsert row: `| <agent task title> | [[<plan-name>]] | agent | approved |`
 
 **Case B — no agent task:**
-- Read plan note, extract first line of `## Summary`
+- Read plan note, extract the blockquote summary line (first line starting with `> ` after the H1 title). Strip the leading `> ` and any trailing whitespace.
 - Append to `## Tasks`:
 ```markdown
 - [ ] #task owner::agent status::approved type::feature priority::high
@@ -68,7 +69,7 @@ Resolve `<vault>/meridian/<slug>/plans/<plan-name>.md`. Find `^status:\s*.*$` in
 - Upsert row: `| Execute plan: <plan-name> | [[<plan-name>]] | agent | approved |`
 
 ### Step 6 — Execute mdn-run
-Immediately invoke `/mdn-run project:<slug>`. Do not print confirmation first. mdn-run output is the final output of this skill.
+Immediately invoke `/mdn-run project:<slug> task:"<agent task title>"` — pass the title of the agent task that was just approved (Case A) or created (Case B) so `mdn-run` executes exactly that task. Do not print confirmation first. mdn-run output is the final output of this skill.
 
 ## Meridian protocol reference
 

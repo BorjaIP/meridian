@@ -6,7 +6,7 @@ description: >
   no Artifact field and spawns one sub-agent per task to generate a Plan index note. By
   default spawns Claude Code Agent sub-agents (model-medium from config). If method:<name>
   is given, delegates to that framework or tool instead. All tasks are planned in parallel
-  by default since plans are independent. project.md writes are always sequential after
+  by default since plans are independent. PROJECT.md writes are always sequential after
   sub-agents complete. After planning, each task transitions to status::review and a review
   checkpoint is created. Use when the user says "plan all backlog tasks", "generate plans",
   "create plans for agent tasks", or runs /mdn-plan.
@@ -31,7 +31,7 @@ description: >
 Read `${XDG_CONFIG_HOME:-~/.config}/meridian/config.md`. Extract `vault`, `model-medium` (default: `sonnet`). Run Date generation snippet → `<NOW>`. If missing: tell user to run `/mdn-init`.
 
 ### Step 1 — Find project note
-Read `<vault>/meridian/<slug>/project.md`. Verify `project: <slug>` in frontmatter. If missing: suggest `/mdn-init name:<slug>`.
+Read `<vault>/meridian/<slug>/PROJECT.md`. Verify `project: <slug>` in frontmatter. If missing: suggest `/mdn-init name:<slug>`.
 
 ### Step 2 — Find unplanned agent tasks
 Scan `## Tasks` for blocks matching **all**:
@@ -55,7 +55,7 @@ Tasks to plan:
 ```
 
 ### Step 4 — Transition to planning
-Single sequential pass through `project.md`: replace `status::backlog` → `status::planning` for each selected task. Upsert row in `## Tasks` table: Status → `planning`.
+Single sequential pass through `PROJECT.md`: replace `status::backlog` → `status::planning` for each selected task. Upsert row in `## Tasks` table: Status → `planning`.
 
 ### Step 5 — Generate slugs
 For each task, derive plan slug from `**Title:**`:
@@ -140,7 +140,7 @@ Return: { "task_title": "...", "plan_slug": "...", "plan_note_path": "...", "suc
 If the sub-agent returns no valid plan note path or the file is not written: set `fallback_used: true`, respawn with the default prompt (no method).
 
 ### Step 7 — Sequential write phase
-After **all** sub-agents have completed, apply all `project.md` changes in a single sequential pass:
+After **all** sub-agents have completed, apply all `PROJECT.md` changes in a single sequential pass:
 
 **7a** — Insert after last `**...**` field in task block: `  **Artifact:** [[<plan-slug>]]`
 

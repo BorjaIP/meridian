@@ -70,26 +70,28 @@ If `<vault>/meridian/<slug>/` already exists: warn and ask to abort or continue 
 Create placeholder files so folders are visible in Obsidian and tracked by git:
 - `<vault>/meridian/<slug>/plans/.gitkeep`
 - `<vault>/meridian/<slug>/tasks/.gitkeep`
-- `<vault>/meridian/<slug>/notes/.gitkeep`
-- `<vault>/meridian/<slug>/meeting-notes/.gitkeep`
-- `<vault>/meridian/<slug>/docs/.gitkeep`
 
 Create `<vault>/meridian/` first if it doesn't exist.
 
+Other files and folders (`REVIEW.md`, `GOAL.md`, `TASK_HISTORY.md`,
+`PROGRESS.md`, `checkpoints/`) are **not** scaffolded — they are created on
+demand by the skills that own them (`mdn-reviewer`, `mdn-loop`, `mdn-archive`,
+`mdn-checkpoint`).
+
 ### Step 4 — Create project note
-Write `<vault>/meridian/<slug>/project.md` using `@~/.config/meridian/templates/Project.md`. Fill in: `title`, `created: <NOW>`, `project: <slug>`, description placeholder, `# <title>` heading. Plans and Tasks tables start empty.
+Write `<vault>/meridian/<slug>/PROJECT.md` using `@~/.config/meridian/templates/Project.md`. Fill in: `title`, `created: <NOW>`, `project: <slug>`, description placeholder, `# <title>` heading. Plans and Tasks tables start empty.
 
 ### Step 5 — Confirm to user
 
 ```
 ✓  Project initialised: <vault>/meridian/<slug>/
-   plans/ tasks/ notes/ meeting-notes/ docs/
-   project.md
+   plans/ tasks/
+   PROJECT.md
 
 →  Next steps:
-   1. Open project.md and add your first task
-   2. Drop a planning artifact in docs/ and run:
-      /mdn-load project:<slug> path:meridian/<slug>/docs/<file>.md type:<type>
+   1. Open PROJECT.md and add your first task (or run /mdn-add project:<slug>)
+   2. Load a planning artifact from any path:
+      /mdn-load project:<slug> path:<absolute-or-relative-path> type:<type>
    3. Or run /mdn-run project:<slug> to plan inline
 ```
 

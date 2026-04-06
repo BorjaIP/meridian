@@ -20,8 +20,8 @@ tags:
 
 ## Plans
 
-| Plan | Status |
-|---|---|
+| Plan | Type | Task | Status | Loaded |
+|---|---|---|---|---|
 
 ---
 

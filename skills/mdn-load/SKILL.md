@@ -13,7 +13,7 @@ description: >
 
 | Format | Example | Stored as |
 |---|---|---|
-| Vault-relative | `meridian/my-app/docs/prd.md` | `[[meridian/my-app/docs/prd]]` |
+| Vault-relative | `my-notes/prd.md` | `[[my-notes/prd]]` |
 | Absolute | `/home/user/projects/app/docs/prd.md` | Absolute path |
 | Repo-relative | `./docs/prd.md` | Path as provided |
 | Custom | any string | Verbatim |
@@ -40,7 +40,7 @@ Resolution order: (1) absolute, (2) `<vault>/<path>`, (3) relative to CWD. If un
 Read `${XDG_CONFIG_HOME:-~/.config}/meridian/config.md`. Extract `vault`. Run Date generation snippet → `<NOW>` (use for every `created:`, `Loaded`, `**Completed by:**` field). If missing: tell user to run `/mdn-init`.
 
 ### Step 1 — Find project note
-Read `<vault>/meridian/<slug>/project.md`. Verify `project: <slug>` in frontmatter. If missing: suggest `/mdn-init name:<slug>`.
+Read `<vault>/meridian/<slug>/PROJECT.md`. Verify `project: <slug>` in frontmatter. If missing: suggest `/mdn-init name:<slug>`.
 
 ### Step 2 — Parse and validate arguments
 Validate `project`, `path`, `type` present. `type` must be one of: `prd`, `adr`, `rfc`, `spec`, `dd`, `research`. If missing: ask before proceeding.
@@ -88,10 +88,10 @@ Header if missing: `| Plan | Type | Task | Status | Loaded |`
 Read plan note, replace `^status:\s*.*$` in YAML frontmatter with `status: pending-review`. Write back. Warn if missing.
 
 ### Step 7 — Update Sources
-If artifact path is absolute (outside vault), add its parent directory to `## Sources` in `project.md` if not already present. Create `## Sources` section before `## Plans` if missing.
+If artifact path is absolute (outside vault), add its parent directory to `## Sources` in `PROJECT.md` if not already present. Create `## Sources` section before `## Plans` if missing.
 
 ### Step 9 — Create review task
-Append to `## Tasks` in `project.md`:
+Append to `## Tasks` in `PROJECT.md`:
 ```markdown
 - [ ] #task owner::me status::review type::review priority::high
   **Title:** Review plan: <plan-name>

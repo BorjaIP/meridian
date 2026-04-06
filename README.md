@@ -67,7 +67,7 @@ Run `/mdn-init` in any Claude Code session to complete first-time setup.
 | `/mdn-status` | Dashboard: all active projects with task counts by status |
 | `/mdn-daily` | Daily brief: everything needing human attention today |
 | `/mdn-sync project:<slug>` | Ingest `.md` files from registered source directories as plan notes |
-| `/mdn-archive project:<slug>` | Move completed tasks to `tasks/history.md` |
+| `/mdn-archive project:<slug>` | Move completed tasks to `TASK_HISTORY.md` |
 
 → [Full skills reference](docs/skills.md)
 

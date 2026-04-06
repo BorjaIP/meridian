@@ -26,7 +26,7 @@ description: >
 Read `${XDG_CONFIG_HOME:-~/.config}/meridian/config.md`. Extract `vault`. Run Date generation snippet → `<NOW>`. If missing: tell user to run `/mdn-init`.
 
 ### Step 1 — Read project note and Sources
-Read `<vault>/meridian/<slug>/project.md`. Extract `## Sources` list items as directory paths. If missing/empty: report and suggest adding paths or running `/mdn-load` first.
+Read `<vault>/meridian/<slug>/PROJECT.md`. Extract `## Sources` list items as directory paths. If missing/empty: report and suggest adding paths or running `/mdn-load` first.
 
 ### Step 2 — Collect existing plan references
 From `## Plans` table, extract all wikilink stems (`[[<name>]]` → `<name>`). Build indexed set.
