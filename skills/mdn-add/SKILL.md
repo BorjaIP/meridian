@@ -58,15 +58,27 @@ Skip for `owner::me` or one-liner chore tasks.
 
 ### Step 4.5 — Quantization: task note creation
 
-Priority order:
+Evaluate conditions in this exact order — stop at the first match:
 
-- **Tier 0 (explicit override):** `note:yes` → CREATE; `note:no` → SKIP
-- **Tier 3 (hard exclusions):** `type::chore` or `type::review` → SKIP (unless `note:yes`)
-- **Tier 1 (auto-create silently):** description > 280 chars, OR `type::feature` + `owner::agent`, OR plan stub requested
-- **Tier 2 (prompt, default no):** `type::feature` + `owner::me`; `type::fix` + description > 100 chars; `type::research` + `owner::agent`
-  - Prompt: "This task looks complex — create a dedicated task note? (yes/no) [no]"
+1. **Explicit `note:yes`** → `create_task_note = true`. Stop.
+2. **Explicit `note:no`** → `create_task_note = false`. Stop.
+3. **Hard exclusion:** `type::chore` or `type::review` → `create_task_note = false`. Stop.
+4. **Auto-create (silent):** ANY of the following → `create_task_note = true`. Stop.
+   - description > 280 chars
+   - `type::feature` + `owner::agent`
+   - plan stub was requested in Step 4
+5. **Prompt required — default NO:** ANY of the following triggers a user prompt:
+   - `type::feature` + `owner::me`
+   - `type::fix` + description > 100 chars
+   - `type::research` + `owner::agent`
 
-Store as `create_task_note` (bool) and `task_slug` (slugified title).
+   ⚠ **STOP. Do NOT proceed to Step 4.6 automatically.**
+   Ask: "This task looks complex — create a dedicated task note? (yes/no) [no]"
+   Wait for an explicit "yes". Anything else (including no response) → `create_task_note = false`.
+
+6. **No match** → `create_task_note = false`.
+
+Store result as `create_task_note` (bool) and, if true, `task_slug` (slugified title).
 
 ### Step 4.6 — Create task note (if `create_task_note == true`)
 Path: `<vault>/meridian/<slug>/tasks/<task_slug>.md`. Use `@~/.config/meridian/templates/Task.md`. Fill: `title`, `type`, `owner`, `priority`, `project`, `task-slug`. Replace summary placeholder with first sentence of description (≤120 chars). Fill `## Context` with full description. Fill `## Acceptance Criteria` as checkboxes. Seed `## History` with `<NOW> — Created.`
