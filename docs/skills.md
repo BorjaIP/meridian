@@ -16,13 +16,13 @@ On first invocation, detects that no config exists and runs setup: asks for the 
 
 ```
 <vault>/meridian/<slug>/
-  project.md          ← scaffolded project note
+  PROJECT.md          ← scaffolded project note
   plans/
   tasks/
-  notes/
-  meeting-notes/
-  docs/
 ```
+
+Additional files (`REVIEW.md`, `GOAL.md`, `TASK_HISTORY.md`, `PROGRESS.md`,
+`checkpoints/`) are created on demand by the skill that owns them.
 
 **Arguments:**
 
@@ -75,8 +75,8 @@ After loading, run `/mdn-approve project:<slug>` to approve and execute in one s
 **Examples:**
 
 ```
-/mdn-load project:my-app path:meridian/my-app/docs/prd.md type:prd task:"Build auth"
-/mdn-load project:my-app path:/home/user/projects/app/docs/prd.md type:prd
+/mdn-load project:my-app path:/home/user/projects/app/docs/prd.md type:prd task:"Build auth"
+/mdn-load project:my-app path:./docs/adr-001.md type:adr
 ```
 
 ---
@@ -221,7 +221,7 @@ Bulk-ingest planning artifacts from registered source directories. Scans all pat
 
 **Command:** `/mdn-archive project:<slug>`
 
-Move all `status::done` task blocks from `project.md` into `tasks/history.md`. Keeps the project note clean without deleting history. The history file is the permanent record.
+Move all `status::done` task blocks from `PROJECT.md` into `TASK_HISTORY.md`. Keeps the project note clean without deleting history. The history file is the permanent record.
 
 **Arguments:**
 

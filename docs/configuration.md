@@ -51,7 +51,7 @@ d=$(date +%-d); case $((d % 100)) in 11|12|13) suf="th";; *) case $((d % 10)) in
 
 Each project lives in `<vault>/meridian/<slug>/` and is created by `/mdn-init`.
 
-**Location:** `<vault>/meridian/<slug>/project.md`
+**Location:** `<vault>/meridian/<slug>/PROJECT.md`
 
 **Folder structure:**
 
@@ -59,13 +59,19 @@ Each project lives in `<vault>/meridian/<slug>/` and is created by `/mdn-init`.
 <vault>/
   meridian/
     <slug>/
-      project.md         ← project note (entry point)
-      plans/             ← Plan index notes
-      tasks/             ← extended task notes (optional)
-      notes/             ← general notes
-      meeting-notes/     ← meeting notes
-      docs/              ← external artifacts (PRDs, ADRs…)
+      PROJECT.md          ← project note (entry point)
+      REVIEW.md           ← Agent Reviewer log (Agent Loop mode)
+      GOAL.md             ← goal state (Agent Loop goal mode)
+      TASK_HISTORY.md     ← archive of completed tasks (mdn-archive)
+      PROGRESS.md         ← checkpoint index (mdn-checkpoint)
+      plans/              ← Plan index notes
+      tasks/              ← extended task notes (optional)
+      checkpoints/        ← individual session checkpoints
 ```
+
+UPPERCASE files and `checkpoints/` are created on demand by their owning skill.
+External artifacts (PRDs, ADRs…) can live anywhere — vault, repo, absolute
+path — see `/mdn-load`.
 
 **Required frontmatter:**
 

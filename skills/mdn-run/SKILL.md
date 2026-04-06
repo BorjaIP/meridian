@@ -20,13 +20,14 @@ description: >
 ## Invocation
 
 ```
-/mdn-run project:<slug> [task:<title>]
+/mdn-run project:<slug> [task:<title>] [loop-id:<id>]
 ```
 
 | Argument | Required | Description |
 |---|---|---|
 | `project` | yes | Meridian project slug |
 | `task` | no | Title of backlog agent task (simple flow). Omit for advanced flow. |
+| `loop-id` | no | Loop identifier from `mdn-loop`. When present, stamp the executed task and its verify checkpoint with `loop-id::<id>`. |
 
 ## Execution steps
 
@@ -34,13 +35,13 @@ description: >
 Read `${XDG_CONFIG_HOME:-~/.config}/meridian/config.md`. Extract `vault`. Run Date generation snippet → `<NOW>`. If missing: tell user to run `/mdn-init`.
 
 ### Step 1 — Find project note
-Read `<vault>/meridian/<slug>/project.md`. Verify `project: <slug>` in frontmatter. If missing: suggest `/mdn-init name:<slug>`.
+Read `<vault>/meridian/<slug>/PROJECT.md`. Verify `project: <slug>` in frontmatter. If missing: suggest `/mdn-init name:<slug>`.
 
 ### Step 2 — Find the next task
 
-**Simple flow:** scan `## Tasks` for `- [ ]` + `owner::agent` + `status::backlog` + `**Title:**` matching `task:` value (case-insensitive). If not found: report and stop. → Mode B.
+**Simple flow:** scan `## Tasks` for `- [ ]` + `owner::agent` + `status::backlog` + `**Title:**` matching `task:` value (case-insensitive). If not found: also check `status::approved` tasks matching the title. If still not found: report and stop. → Mode B.
 
-**Advanced flow:** scan `## Tasks` for first `- [ ]` + `owner::agent` + `status::approved`. If none: report "No approved agent tasks in `<slug>`." and suggest checking `status::review` tasks.
+**Advanced flow (no `task:` arg):** scan `## Tasks` for first `- [ ]` + `owner::agent` + `status::approved`. If none: report "No approved agent tasks in `<slug>`." and suggest checking `status::review` tasks.
 
 ### Step 3 — Determine execution mode
 
@@ -86,11 +87,15 @@ Scan `owner::me status::backlog` tasks. For each whose title/description semanti
 3. Append: `**Completed by:** /mdn-run on <YYYY-MM-DD>`
 
 ### Step 9 — Create verification checkpoint
-Insert immediately below the completed task block:
+Insert immediately below the completed task block.
+
+If `loop-id:<id>` was supplied, include `loop-id::<id>` on the checkbox line of
+both the completed task (if not already stamped) and the verify checkpoint, so the
+Reviewer can scope its pass to the current loop.
 
 **Mode A:**
 ```markdown
-- [ ] #task owner::me status::review type::review priority::high
+- [ ] #task owner::me status::review type::review priority::high [loop-id::<id>]
   **Title:** Verify: <completed task title>
   **Description:** Agent completed execution. Review the output and confirm it meets the acceptance criteria. Approve to close the loop, or add a new task if corrections are needed.
   **Artifact:** [[<plan-name>]]
@@ -98,10 +103,12 @@ Insert immediately below the completed task block:
 
 **Mode B:**
 ```markdown
-- [ ] #task owner::me status::review type::review priority::high
+- [ ] #task owner::me status::review type::review priority::high [loop-id::<id>]
   **Title:** Verify: <completed task title>
   **Description:** Agent completed execution. Review the output and confirm it meets the acceptance criteria. Approve to close the loop, or add a new task if corrections are needed.
 ```
+
+Omit `loop-id::<id>` when the argument was not supplied.
 
 Upsert row: `| Verify: <title> | [[<plan>]] or — | me | review |`
 
