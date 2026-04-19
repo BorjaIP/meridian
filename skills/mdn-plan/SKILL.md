@@ -1,15 +1,15 @@
 ---
 name: mdn-plan
-model: medium
+model: claude-sonnet-4-6
 description: >
   Meridian planning skill. Orchestrator: finds all owner::agent status::backlog tasks with
-  no Artifact field and spawns one sub-agent per task to generate a Plan index note. By
-  default spawns Claude Code Agent sub-agents (model-medium from config). If method:<name>
-  is given, delegates to that framework or tool instead. All tasks are planned in parallel
-  by default since plans are independent. PROJECT.md writes are always sequential after
-  sub-agents complete. After planning, each task transitions to status::review and a review
-  checkpoint is created. Use when the user says "plan all backlog tasks", "generate plans",
-  "create plans for agent tasks", or runs /mdn-plan.
+  no Artifact field and spawns one sub-agent per task. Each sub-agent uses native Plan Mode
+  (Claude EnterPlanMode, OpenCode, Cursor, etc.) to explore the codebase and generate a real
+  implementation plan, then creates a Meridian index note that summarises and links to the
+  plan artifact via absolute path. If method:<skill-name> is given, uses that skill instead
+  of native Plan Mode. All tasks are planned in parallel by default. PROJECT.md writes are
+  always sequential after sub-agents complete. After planning, each task transitions to
+  status::review and a review checkpoint is created.
 ---
 
 ## Invocation
@@ -23,7 +23,7 @@ description: >
 | `project` | yes | — | Meridian project slug |
 | `tasks` | no | `all` | `all` or N to plan only first N |
 | `parallel` | no | `yes` | `yes` = spawn sub-agents concurrently (recommended); `no` = sequential |
-| `method` | no | — | External framework or tool name to delegate plan generation to. If absent: use Agent sub-agent (model-medium). |
+| `method` | no | — | Skill name to use instead of native Plan Mode. If absent: sub-agent uses its framework's native Plan Mode (Claude → EnterPlanMode, OpenCode → its plan, etc.). |
 
 ## Execution steps
 
@@ -77,67 +77,108 @@ mdn-plan is an **orchestrator**. It never generates plan content inline — alwa
 
 #### Step 6a — Per-task sub-agent
 
-**No `method:` given (default):**
+Each sub-agent has **two phases**: (1) generate a real implementation plan using a planning tool, and (2) create the Meridian index note that summarises and links to it.
 
-Spawn an Agent sub-agent with `model: <model-medium>` and the following prompt:
+The planning tool varies by `method:`:
+- **No `method:` (default):** use the **native Plan Mode** of the current agent framework (Claude Code → `EnterPlanMode`, OpenCode → its plan mode, Cursor → its plan mode, etc.). The plan file is stored wherever the framework puts it — the sub-agent records the absolute path.
+- **`method:<skill-name>`:** use the named skill instead of native Plan Mode. Everything else is identical.
+
+**Sub-agent prompt (both cases):**
+
+Spawn an Agent sub-agent with `model: <model-medium>` and `mode: "plan"` (when using default native plan mode). The prompt:
 
 ```
-Generate a Meridian Plan index note for this task and write it to disk.
+You have two phases for this task.
 
 Task:
   Title: <task title>
   Description: <task description>
   Acceptance: <acceptance criteria or "not specified">
 
-Output path: <vault>/meridian/<slug>/plans/<plan-slug>.md
+Project dir: <project working directory>
 
-Use @~/.config/meridian/templates/Plan.md as the file structure. Replace all Templater
-expressions with literal values:
-  - title: "Plan: <task title>"
-  - created: <NOW>
-  - project: <slug>
-  - task: "<task title>"
-  - status: pending-review
+─── Phase 1: Generate implementation plan ───
 
-Fill the body:
-  - Blockquote summary (>): one sentence synthesizing Description + Acceptance into a
-    statement of intent. Never copy-paste. If description < 20 words and no Acceptance:
-    write "[TBD — clarify with task owner]".
-  - ## Artifacts: leave the empty row | | | | and the hint comment unchanged. No artifacts.
-  - ## Key Points: 3–6 bullets from the task text. Focus on risks, constraints,
-    non-obvious points, implied dependencies. Use [TBD] for genuine gaps.
-  - ## Execution Order: 3–8 numbered steps. Derive from Acceptance first (each criterion
-    → ≥1 step), then add prerequisites. Steps concrete enough for a fresh agent.
-  - ## Notes: copy the template blockquote verbatim. No content.
+<IF default (no method):>
+Use your native Plan Mode to create an implementation plan for this task. Explore the
+codebase, understand the project structure, identify relevant files, and produce a
+detailed plan. The plan file will be stored wherever your framework places it — record
+its absolute path.
+<ENDIF>
 
-Write the complete file to the output path and return:
-  { "task_title": "...", "plan_slug": "...", "plan_note_path": "...", "success": true/false,
-    "thin_description": true/false, "error": "..." }
+<IF method:<skill-name>:>
+Use the skill "<skill-name>" to generate a plan for this task. The plan file will be
+stored wherever that skill places it — record its absolute path. If the skill fails or
+produces no file, fall back to native Plan Mode.
+<ENDIF>
+
+The plan must reflect actual knowledge of the codebase — not just restate the task
+description.
+
+─── Phase 2: Create Meridian index note ───
+
+After the plan exists, read it and create the Meridian index note at:
+
+  <vault>/meridian/<slug>/plans/<plan-slug>.md
+
+Use this structure (replace Templater expressions with literal values):
+
+---
+title: "Plan: <task title>"
+created: <NOW>
+project: <slug>
+task: "<task title>"
+status: pending-review
+tags:
+  - plan
+---
+# Plan: <task title>
+
+> <one sentence synthesizing Description + Acceptance into a statement of intent — never
+  copy-paste. If description < 20 words and no Acceptance: "[TBD — clarify with task owner]">
+
+---
+
+## Artifacts
+
+| Type | Document | Description |
+|---|---|---|
+| plan | [[<absolute-path-to-plan-file>\|<plan-file-name>.md]] | Implementation plan generated by <framework-or-skill> |
+
+> Add rows via `/mdn-load` or manually. Types: `prd` `adr` `rfc` `spec` `dd` `research`
+
+---
+
+## Key Points
+
+<3–6 bullets summarised from the plan. Focus on risks, constraints, non-obvious points,
+implied dependencies found during codebase exploration. Reference concrete file paths.
+Use [TBD] for genuine gaps.>
+
+---
+
+## Execution Order
+
+<3–8 numbered steps summarised from the plan. Each step should be concrete enough for a
+fresh agent to execute by reading the linked plan artifact. Reference file paths.>
+
+---
+
+## Notes
+
+> Free-form notes added during review or execution. Agents append here when marking tasks done.
+
+─── Return format ───
+
+Return:
+  { "task_title": "...", "plan_slug": "...", "plan_note_path": "...",
+    "plan_artifact_path": "<absolute path to plan file>",
+    "method": "<native-plan-mode | skill-name>",
+    "success": true/false, "thin_description": true/false,
+    "fallback_used": false, "error": "..." }
 ```
 
-**`method:<framework-name>` given:**
-
-Spawn an Agent sub-agent with `model: <model-medium>` and prompt it to use the specified framework/tool to generate the plan:
-
-```
-Use <framework-name> to generate a plan for this task and write the result as a Meridian
-Plan index note to: <vault>/meridian/<slug>/plans/<plan-slug>.md
-
-Task:
-  Title: <task title>
-  Description: <task description>
-  Acceptance: <acceptance criteria or "not specified">
-
-The output file must follow @~/.config/meridian/templates/Plan.md structure (replace
-Templater expressions with literal values). The plan content generated by <framework-name>
-should populate ## Key Points and ## Execution Order. Add to ## Notes:
-  > Generated via <framework-name> by /mdn-plan on <NOW>
-
-Return: { "task_title": "...", "plan_slug": "...", "plan_note_path": "...", "success": true/false,
-  "fallback_used": false, "error": "..." }
-```
-
-If the sub-agent returns no valid plan note path or the file is not written: set `fallback_used: true`, respawn with the default prompt (no method).
+If the sub-agent fails to produce a plan file (skill error, framework issue): set `fallback_used: true` and respawn with native Plan Mode. If that also fails, report in Step 10.
 
 ### Step 7 — Sequential write phase
 After **all** sub-agents have completed, apply all `PROJECT.md` changes in a single sequential pass:

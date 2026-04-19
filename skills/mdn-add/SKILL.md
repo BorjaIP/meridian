@@ -12,20 +12,21 @@ description: >
 ## Invocation
 
 ```
-/mdn-add project:<slug> [title:"..."] [owner:me|agent] [type:feature|fix|research|chore] [priority:high|medium|low] [plan:yes] [note:yes|no]
+/mdn-add project:<slug> [title:"..."] [owner:me|agent] [type:feature|fix|research|chore] [priority:high|medium|low] [plan:yes] [note:yes|no] [complex:yes]
 ```
 
-All arguments except `project` are optional — missing ones collected interactively.
+All arguments except `project` are optional. **Default mode is simple** — the skill infers everything from the user's input without asking questions. Use `complex:yes` to force interactive mode.
 
 | Argument | Required | Description |
 |---|---|---|
 | `project` | yes | Meridian project slug |
-| `title` | no | Short imperative title |
-| `owner` | no | `me` or `agent` |
-| `type` | no | `feature` \| `fix` \| `research` \| `chore` |
-| `priority` | no | `high` \| `medium` \| `low`. Default: `medium` |
-| `plan` | no | `plan:yes` to create a Plan index stub immediately |
-| `note` | no | `yes` force task note; `no` suppress it |
+| `title` | no | Short imperative title or free-form description |
+| `owner` | no | `me` or `agent`. **Default: `agent`** |
+| `type` | no | `feature` \| `fix` \| `research` \| `chore`. Inferred if omitted. |
+| `priority` | no | `high` \| `medium` \| `low`. Inferred if omitted. Default: `medium` |
+| `plan` | no | `plan:yes` to create a Plan index stub (forces complex mode) |
+| `note` | no | `yes` force task note (forces complex mode); `no` suppress it |
+| `complex` | no | `complex:yes` forces interactive collection of all fields |
 
 ## Execution steps
 
@@ -35,11 +36,45 @@ Read `${XDG_CONFIG_HOME:-~/.config}/meridian/config.md`. Extract `vault`. Run Da
 ### Step 1 — Find project note
 Read `<vault>/meridian/<slug>/PROJECT.md`. Verify `project: <slug>` in frontmatter. If missing: suggest `/mdn-init name:<slug>`.
 
-### Step 2 — Collect task fields interactively
-For each field not in invocation, ask in this order:
+### Step 1.5 — Decide mode: simple vs complex
+
+Evaluate in order — stop at first match:
+
+1. **Force complex** if any of: `complex:yes` / `plan:yes` / `note:yes` → go to Step 2.
+2. **Force complex** if user provided a detailed description (>120 chars of context beyond the title, multiple bullet points, or explicit acceptance criteria in their message) → go to Step 2.
+3. **Default: simple** → skip Step 2, go to Step 1.6.
+
+### Step 1.6 — Simple path (infer everything, no questions)
+
+Infer all fields from the user's input (title + any extra context provided).
+**All generated text (title, description, acceptance criteria) MUST be written in English, regardless of the language used in the input.**
+
+1. **title** — clean the input into a short imperative phrase in English (≤80 chars).
+2. **owner** — `agent` always.
+3. **type** — infer from the title:
+   - "fix", "corregir", "arreglar", "bug", "error" → `fix`
+   - "revisar", "review", "analizar", "investigate", "research", "audit", "auditar" → `research`
+   - "añadir", "add", "crear", "create", "implement", "implementar", "build" → `feature`
+   - default → `chore`
+4. **priority** — infer from the title:
+   - "urgente", "urgent", "crítico", "critical", "asap", "blocker" → `high`
+   - "cuando puedas", "eventually", "nice to have", "opcional" → `low`
+   - default → `medium`
+5. **description** — generate one sentence (≤120 chars) capturing what and why, using the title and project name as context.
+6. **acceptance** — generate 1–3 concise, measurable acceptance criteria inferred from the title. Written as checkboxes.
+7. **depends** — none.
+8. **create_task_note** — `false`.
+9. **plan** — `false`.
+
+Proceed directly to Step 6.
+
+### Step 2 — Complex path: collect fields interactively
+*(Only reached when complex mode is triggered — see Step 1.5)*
+
+For each field not already provided, ask in this order:
 1. **title** — "Task title (short imperative phrase):"
-2. **owner** — "`me` or `agent`?" (`me` = human acts; `agent` = /mdn-run executes)
-3. **type** — "`feature` / `fix` / `research` / `chore`?" (suggest `research`/`chore` for `me`; `feature`/`fix` for `agent`)
+2. **owner** — "`me` or `agent`? [agent]"
+3. **type** — "`feature` / `fix` / `research` / `chore`?"
 4. **priority** — "`high` / `medium` / `low`? [medium]"
 5. **description** — "Description (what and why):"
 6. **acceptance** — "Acceptance criteria?" (optional for `me`; encouraged for `agent`)
@@ -60,14 +95,15 @@ Skip for `owner::me` or one-liner chore tasks.
 
 Evaluate conditions in this exact order — stop at the first match:
 
-1. **Explicit `note:yes`** → `create_task_note = true`. Stop.
-2. **Explicit `note:no`** → `create_task_note = false`. Stop.
-3. **Hard exclusion:** `type::chore` or `type::review` → `create_task_note = false`. Stop.
-4. **Auto-create (silent):** ANY of the following → `create_task_note = true`. Stop.
+1. **Simple mode** (came via Step 1.6) → `create_task_note = false`. Stop.
+2. **Explicit `note:yes`** → `create_task_note = true`. Stop.
+3. **Explicit `note:no`** → `create_task_note = false`. Stop.
+4. **Hard exclusion:** `type::chore` or `type::review` → `create_task_note = false`. Stop.
+5. **Auto-create (silent):** ANY of the following → `create_task_note = true`. Stop.
    - description > 280 chars
    - `type::feature` + `owner::agent`
    - plan stub was requested in Step 4
-5. **Prompt required — default NO:** ANY of the following triggers a user prompt:
+6. **Prompt required — default NO:** ANY of the following triggers a user prompt:
    - `type::feature` + `owner::me`
    - `type::fix` + description > 100 chars
    - `type::research` + `owner::agent`
@@ -76,7 +112,7 @@ Evaluate conditions in this exact order — stop at the first match:
    Ask: "This task looks complex — create a dedicated task note? (yes/no) [no]"
    Wait for an explicit "yes". Anything else (including no response) → `create_task_note = false`.
 
-6. **No match** → `create_task_note = false`.
+7. **No match** → `create_task_note = false`.
 
 Store result as `create_task_note` (bool) and, if true, `task_slug` (slugified title).
 

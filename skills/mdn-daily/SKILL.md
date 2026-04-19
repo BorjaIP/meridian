@@ -3,7 +3,7 @@ name: mdn-daily
 model: low
 description: >
   Meridian daily review skill. Surfaces all tasks that need human attention today across
-  all active projects: items pending review, high-priority backlog items owned by the user,
+  all active projects: items pending review, all backlog items owned by the user (any priority),
   and any blocked tasks. Use when the user says "what do I need to do today", "show my
   tasks", "daily meridian", or runs `/mdn-daily`.
 ---
@@ -41,7 +41,7 @@ Glob `<vault>/meridian/*/PROJECT.md`. Filter to `status: active` frontmatter.
 For each project note, scan `## Tasks` into five buckets:
 
 - **A — Review** (`owner::me status::review`): title + `**Artifact:**` wikilink
-- **B — High-priority** (`owner::me status::backlog priority::high`): title + description first sentence (truncate at first `.` or 120 chars)
+- **B — Backlog** (`owner::me status::backlog`): title + description first sentence (truncate at first `.` or 120 chars). Show `[high]` tag if `priority::high`, `[medium]` if `priority::medium`, `[low]` if `priority::low`.
 - **C — Blocked** (`owner::me status::blocked` or `owner::agent status::blocked`): title + owner tag + `**Note:**` if present
 - **D — In progress** (`owner::agent status::in-progress`): title + `**Artifact:**` if present
 - **E — Agent ready** (`owner::agent status::approved`): title + `**Artifact:**` if present
@@ -75,7 +75,7 @@ Rules: one blank line before each project block. Order: A→B→C→D→E. No su
 **Human attention needed (A, B, or C non-empty):**
 ```
 ────────────────────────────────────────────
-▸  <N> items need your attention  ·  <X> pending review  ·  <Y> high-priority  ·  <Z> blocked
+▸  <N> items need your attention  ·  <X> pending review  ·  <Y> backlog  ·  <Z> blocked
    ◎  <N> in progress  ·  <N> ready to run    ← only if D or E non-empty
 ```
 Omit zero-count segments.
