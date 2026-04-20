@@ -40,7 +40,7 @@ Scan `## Tasks` for blocks matching **all**:
 - `status::backlog`
 - NO `**Artifact:**` field in block
 
-Extract per block: checkbox line, `**Title:**`, `**Description:**`, `**Acceptance:**` (optional), `**Depends on:**` (optional).
+Extract per block: checkbox line, `**Title:**`, `**Description:**`, `**Acceptance:**` (optional), `**Depends on:**` (optional), `**Task note:**` (optional).
 
 If none: print "No unplanned agent tasks in `<slug>`." and stop.
 
@@ -94,6 +94,12 @@ Task:
   Title: <task title>
   Description: <task description>
   Acceptance: <acceptance criteria or "not specified">
+
+<IF task has **Task note:** field:>
+This task has a detailed specification file. Read it before doing anything else:
+  <vault>/meridian/<slug>/tasks/<task_note_slug>.md
+Use it as the primary source of truth for architecture, acceptance criteria, and context.
+<ENDIF>
 
 Project dir: <project working directory>
 
