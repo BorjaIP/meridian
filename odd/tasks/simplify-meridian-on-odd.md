@@ -23,8 +23,8 @@ Delivery: single PR on the feature branch, user decides push/PR; size:exception 
 - [x] T1.1 (S2,S3) Define new task/Run/Trace format in docs/protocol.md; slim templates/Project.md; drop Plan.md/Task.md | route: delegated writer | commit 523e67c
 - [x] T1.2 (S2,S3) Add format-lint script (scripts/mdn-lint.sh) + sample fixtures | route: delegated writer | commit c36efec | evidence: RED 11 fails (no linter) -> GREEN `bash tests/run.sh` all 11 ok (re-run by parent); gawk 5.3.1; shellcheck not installed
 - [x] T2.1 (S1,S4,S5,S6) Rewrite skills/mdn-run for the single-trigger flow (slug, in-progress first, ODD handoff, git/gh metadata, odd doc detection, UNC link, interrupted-run recovery) | route: delegated writer | commits ecd15f8, db6eff0 | evidence: RED 23 fails -> GREEN trace-test + run.sh all pass (re-run by parent); live smoke on this repo returned correct UNC link. NOT verified: skill end to end (needs real session, see T4.3); gh pr list vs real remote
-- [ ] T3.1 (S2,S3,S7) Update add, done (new), daily, status, archive, init to the new format/states | route: delegated writer
-- [ ] T3.2 (S7) Remove retired skills (plan, approve, reviewer, checkpoint, generator, loop, load, sync) from repo | route: delegated writer
+- [x] T3.1 (S2,S3,S7) Update add, done (new), daily, status, archive, init to the new format/states | route: delegated writer | commit 8b43444 | evidence: tests/run.sh pass (re-run by parent); mdn-done/mdn-archive file edits hand-simulated with awk and lint-clean; skills themselves not run (markdown, no unit tests)
+- [x] T3.2 (S7) Remove retired skills (plan, approve, reviewer, checkpoint, generator, loop, load, sync) from repo | route: delegated writer | commit 2885490 | evidence: ls skills = add archive daily done init run status; grep of retired terms = 0 hits (re-run by parent); skills 1940 -> 480 lines
 - [ ] T4.1 (S8) Dry-run converter for the vault project onto a copy; show diff to user | route: delegated writer
 - [ ] T4.2 (S8) Apply migration to the vault after user review (single revertable change); legacy kept in archive-legacy/ | route: inline, needs user OK
 - [ ] T4.3 (S1) Dogfood: run the next real Meridian task through /mdn-run end to end | route: inline
@@ -39,4 +39,5 @@ Delivery: single PR on the feature branch, user decides push/PR; size:exception 
 - L3: Phase 0 done on 2026-10-10 14:42. Vault repo (E:\Documents\pkm\pkm) is git with a periodic "vault backup" commit; untracked engram/ folder there comes from the earlier obsidian-export test.
 - L4: T1.1/T1.2 done. Parent re-ran tests and smoke-tested the linter on the real vault project: it flags missing slug and retired state `planning`, as expected for the old format.
 - L5: T2.1 done. mdn-run SKILL.md mentions /mdn-done, which is created in T3.1. mdn-trace.sh emits repeated key=value lines (odd_doc=, unc_link=, commits= comma-separated).
-- Progress: 4/12 tasks. Next step: T3.1 + T3.2 via one delegated writer.
+- L6: T3.1/T3.2 done. Vault project (old format) has 3 duplicated task representations: Plans table, Tasks summary table and 7 inline #task blocks (4 backlog, 1 planning, 2 review owner::me). Plus plans/ (10 notes), tasks/integrate-memory-kb.md, tasks/history.md (196 lines). Some open tasks look superseded by gentle-ai+engram (memory KB, memory partitioning, Plan.md simplification): flag to user at migration review, do not auto-drop.
+- Progress: 6/12 tasks. Next step: T4.1 migration converter (dry-run only) via delegated writer.
