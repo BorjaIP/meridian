@@ -1,8 +1,8 @@
 ---
 title: <% tp.file.title %>
-created: <% tp.date.now("dddd Do MMMM YYYY HH:mm") %>
 project:
 status: active
+repo:
 tags:
   - project
 ---
@@ -12,20 +12,5 @@ tags:
 
 ---
 
-## Sources
-
-> Directories scanned by `/mdn-sync`. Each entry is a folder path that may contain plan artifacts to index.
-
----
-
-## Plans
-
-| Plan | Type | Task | Status | Loaded |
-|---|---|---|---|---|
-
----
-
 ## Tasks
 
-| Task | Plan | Owner | Status |
-|---|---|---|---|

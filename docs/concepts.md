@@ -1,98 +1,53 @@
 # Concepts
 
-## Vision
+## What Meridian is
 
-> The vault is the single source of truth for every project and task. Any agent — Claude Code, Cursor, a GPT, a CLI script — reads from it, plans against it, executes, and hands control back through it. No agent is required. No agent is privileged.
+Meridian is a **human traceability ledger** over agent work. It answers three questions about every task: what was asked, when did it run, and where is the evidence.
 
----
+It deliberately does not plan, schedule or execute. Those jobs belong to other tools:
 
-## Why Meridian?
-
-> *"Any navigator, any ship, any era — the meridian doesn't care who's crossing it."*
-
-The **Prime Meridian** (0° longitude, Greenwich) is the universal reference line of every map ever drawn. It doesn't belong to any country or compass — it's a convention that any navigator adopts to locate themselves and communicate position to others.
-
-Meridian — the protocol — works the same way:
-
-- **The vault is the Prime Meridian.** It's the fixed reference every agent reads from and writes to. Agents don't share memory or APIs — they share the vault.
-- **Any agent can cross it.** Claude Code, Cursor, a custom GPT, a shell script. The protocol doesn't care. Implement five primitives (READ, GREP, EDIT, INSERT, WRITE) and you're in.
-- **"Crossing the meridian"** in astronomy is the moment a star reaches its highest point — maximum visibility, maximum clarity. In Meridian the protocol, that moment is the **review checkpoint**: the instant a plan surfaces from the agent back to the human for inspection before execution begins.
-- **Meridians carry flow.** In traditional medicine, meridians are channels through which energy moves through the body. Here, tasks flow through the system — from human intent, through agent planning, into execution, and back as completed work.
-
-Meridian is not a tool. It's a line on the map that everyone agrees to use.
-
----
-
-## Core Concept
-
-```
-Vault (Projects + Tasks)  ←────────────────────────►  Any Agent (Execution)
-        ▲                                                       │
-        │  status fields are the only shared state              │
-        │                                                       ▼
-   Human reviews                                   Reads · Plans · Builds
-   & approves                                      Creates review checkpoints
-        ▲                                                       │
-        └───────────────── vault write ─────────────────────────┘
-```
-
-The loop:
-
-1. **Define** — Human writes a task in a Project note (`owner::agent`)
-2. **Pick up** — Agent finds the next `agent/backlog` task for project X
-3. **Plan** — A planning artifact is produced by any external tool (`/mdn-load`) or generated inline by the agent (`/mdn-plan`)
-4. **Checkpoint** — Meridian inserts a `owner::me status::review` task pointing to the plan
-5. **Approve** — Human reads, edits if needed, runs `/mdn-approve`
-6. **Execute** — Agent picks up the approved task and executes against the plan
-7. **Review** — Agent creates a verification checkpoint; human confirms or requests changes
-8. **Done** — Loop continues or ends
-
----
-
-## State Machine
-
-Every task moves through a single state machine:
-
-```mermaid
-stateDiagram-v2
-    [*] --> backlog
-    backlog --> planning : agent picks up (mdn-plan)
-    planning --> review : plan generated
-    review --> approved : human approves (mdn-approve)
-    review --> blocked : human rejects / needs info
-    approved --> in_progress : agent starts (mdn-run)
-    in_progress --> done : execution complete
-    blocked --> backlog : human unblocks
-    done --> [*]
-```
-
-### Agent transitions (automated)
-
-| Transition | Trigger |
+| Concern | Owner |
 |---|---|
-| `backlog → planning` | Agent picks up the task (`mdn-plan`) |
-| `planning → review` | Agent has produced a plan and inserted review checkpoint |
-| `approved → in-progress` | Agent begins execution (`mdn-run`) |
-| `in-progress → done` | Agent completes execution |
+| Planning, task breakdown, TDD, commits | gentle-ai ODD, which runs by default on every request in Claude Code |
+| Agent memory | Engram |
+| Human record: request, run, evidence, review | **Meridian** (a Markdown note in your vault) |
 
-### Human transitions (manual)
+There are no gentle-ai workflow commands to learn. You describe the work; ODD handles it; Meridian records it. What each side produces is in the README section [How Meridian uses gentle-ai](../README.md#how-meridian-uses-gentle-ai), and the flow is drawn in [workflow.md](workflow.md).
 
-| Transition | Trigger |
+## The vault and the repository
+
+- The **vault** holds one note per project: `<vault>/meridian/<slug>/project.md`, with inline `#task` lines.
+- The **repository** holds the work, including ODD's task documents under `odd/tasks/`. They always stay in the repository.
+- The `**Trace:**` block of a task links the two: a Markdown link to the `odd/` document (a Windows UNC path, for WSL), plus branch, commits and pull request as text.
+
+## Metadata comes from git
+
+Dates, branch, commits, diff stat, pull request and the changed `odd/tasks/*.md` files are collected by `scripts/mdn-trace.sh` from `git` and `gh`. They are not taken from the model's own summary.
+
+## Task states
+
+```
+backlog -> in-progress -> review -> done        (+ blocked)
+```
+
+| State | Meaning |
 |---|---|
-| `review → approved` | Human reads and approves the plan (`/mdn-approve`) |
-| `review → blocked` | Human rejects or needs clarification (add a **Note:** field) |
-| `any → blocked` | Human blocks for external reasons |
-| `blocked → backlog` | Human unblocks and resets to queue |
+| `backlog` | Recorded, not started. |
+| `in-progress` | A run started; the task has a `**Run:**` block. |
+| `review` | The run ended; the human should look at the result. |
+| `done` | The human accepted it (`/mdn-done`). |
+| `blocked` | Cannot continue; a `**Note:**` says why. |
 
----
+There is no approval gate before execution. The human checkpoint is `review`, after the work. The full transition table is in [protocol.md](protocol.md).
 
-## Agent vs Human Roles
+## Owners
 
-Meridian separates work by `owner`:
+`owner::agent` tasks are run with `/mdn-run`. `owner::me` tasks are yours; `/mdn-daily` lists them and `/mdn-done` closes them.
 
-| Owner | Role | How they act |
-|---|---|---|
-| `owner::me` | Human | Reads review checkpoints, approves plans, unblocks tasks |
-| `owner::agent` | Any agent | Executes tasks, creates plans, transitions states |
+## Agent-agnostic scope
 
-The `status` field on each task is the only shared state. Neither side needs to know what runtime the other is using.
+The note format and its state machine are plain Markdown and can be read or written by any tool; [protocol.md](protocol.md) is the contract. The skills and installers are not agent-agnostic: they exist for Claude Code and Codex, `/mdn-run` assumes the gentle-ai ODD workflow, and skills are instructions whose behavior depends on the model that follows them.
+
+## Why "Meridian"
+
+The Prime Meridian is a shared reference line. The vault note plays that role for humans: a fixed place where the request, the run and the evidence can be found, whichever agent did the work.

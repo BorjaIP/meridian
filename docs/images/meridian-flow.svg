@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1040 620" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="meridian-flow-title meridian-flow-desc" id="meridian-flow-root">
+  <title id="meridian-flow-title">How a Meridian task flows</title>
+  <desc id="meridian-flow-desc">Swimlane diagram: the human runs /mdn-run, Meridian records the task first in the Obsidian vault, gentle-ai ODD does the work in the repo and mirrors it to Engram, Meridian traces the run from git and moves it to review, the human closes it with /mdn-done, and /mdn-archive moves done tasks to the monthly log.</desc>
+  <defs>
+      <style>#meridian-flow-root { --color-paper:  #ffffff;
+      --color-ink:    #0a0a0a;
+      --color-muted:  #404040;
+      --font-sans: 'Avenir Next', 'Century Gothic', Futura, 'Trebuchet MS', system-ui, sans-serif;
+      --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, 'DejaVu Sans Mono', monospace; }
+      #meridian-flow-root { font-family: var(--font-sans); color: var(--color-ink); }
+      #meridian-flow-root .diagram-container { width: 100%; overflow-x: auto; }
+      #meridian-flow-root .nm { font-family: var(--font-sans); font-size: 13px; font-weight: 600; }
+      #meridian-flow-root .sb { font-family: var(--font-mono); font-size: 10.5px; font-weight: 400; }
+      #meridian-flow-root .ey { font-family: var(--font-mono); font-size: 10px; font-weight: 500; letter-spacing: 0.16em; }
+      #meridian-flow-root .ln { font-family: var(--font-sans); font-size: 11px; font-weight: 400; }
+      #meridian-flow-root .al { font-family: var(--font-mono); font-size: 9px; font-weight: 400; letter-spacing: 0.06em; }
+      #meridian-flow-root .lg { font-family: var(--font-sans); font-size: 11px; font-weight: 400; }
+      #meridian-flow-root .diagram-container { overflow-x: visible; }</style>
+    <marker id="meridian-flow-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#404040"/></marker>
+  </defs>
+  <rect width="100%" height="100%" fill="#ffffff"/>
+
+  <!-- Lanes -->
+  <line x1="40" y1="40" x2="1000" y2="40" stroke="#0a0a0a" stroke-opacity="0.30" stroke-width="1"/>
+  <line x1="40" y1="140" x2="1000" y2="140" stroke="#0a0a0a" stroke-opacity="0.14" stroke-width="1"/>
+  <line x1="40" y1="340" x2="1000" y2="340" stroke="#0a0a0a" stroke-opacity="0.14" stroke-width="1"/>
+  <line x1="40" y1="540" x2="1000" y2="540" stroke="#0a0a0a" stroke-opacity="0.30" stroke-width="1"/>
+  <line x1="152" y1="40" x2="152" y2="540" stroke="#0a0a0a" stroke-opacity="0.30" stroke-width="1"/>
+  <text class="ey" x="52" y="84" fill="#0a0a0a">YOU</text>
+    <text class="ln" x="52" y="100" fill="#595959">the human</text>
+  <text class="ey" x="52" y="228" fill="#0a0a0a">GENTLE-AI</text>
+    <text class="ln" x="52" y="244" fill="#595959">execution,</text>
+    <text class="ln" x="52" y="258" fill="#595959">memory</text>
+  <text class="ey" x="52" y="428" fill="#0a0a0a">MERIDIAN</text>
+    <text class="ln" x="52" y="444" fill="#595959">ledger,</text>
+    <text class="ln" x="52" y="458" fill="#595959">pointers</text>
+
+  <!-- Arrows (drawn first) -->
+  <path d="M244,120 V280 Q244,288 252,288 H384 Q392,288 392,296 V356" fill="none" stroke="#404040" stroke-width="1.2" marker-end="url(#meridian-flow-arrow)"/>
+  <path d="M468,388 H540 Q548,388 548,380 V324" fill="none" stroke="#404040" stroke-width="1.2" marker-end="url(#meridian-flow-arrow)"/>
+  <path d="M644,292 H708 Q716,292 716,300 V356" fill="none" stroke="#404040" stroke-width="1.2" marker-end="url(#meridian-flow-arrow)"/>
+  <path d="M792,388 H800 Q808,388 808,380 V96 Q808,88 816,88 H824" fill="none" stroke="#404040" stroke-width="1.2" marker-end="url(#meridian-flow-arrow)"/>
+  <path d="M900,120 V356" fill="none" stroke="#404040" stroke-width="1.2" marker-end="url(#meridian-flow-arrow)"/>
+  <path d="M392,420 V468" fill="none" stroke="#404040" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#meridian-flow-arrow)"/>
+  <path d="M716,420 V468" fill="none" stroke="#404040" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#meridian-flow-arrow)"/>
+  <path d="M900,420 V468" fill="none" stroke="#404040" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#meridian-flow-arrow)"/>
+  <path d="M516,260 V224" fill="none" stroke="#404040" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#meridian-flow-arrow)"/>
+  <path d="M580,260 V224" fill="none" stroke="#404040" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#meridian-flow-arrow)"/>
+
+  <!-- Arrow labels -->
+  <rect x="272" y="266" width="92" height="14" rx="2" fill="#ffffff"/>
+    <text class="al" x="318" y="276" fill="#595959" text-anchor="middle">RECORDS FIRST</text>
+  <rect x="824" y="232" width="68" height="14" rx="2" fill="#ffffff"/>
+    <text class="al" x="858" y="242" fill="#595959" text-anchor="middle">AFTER DONE</text>
+
+  <!-- Nodes -->
+  <rect x="168" y="56" width="152" height="64" rx="6" fill="#ffffff"/>
+    <rect x="168" y="56" width="152" height="64" rx="6" fill="#0a0a0a" stroke="#0a0a0a" stroke-width="1"/>
+    <text class="nm" x="244.0" y="82" fill="#ffffff" text-anchor="middle">Run a task</text>
+    <text class="sb" x="244.0" y="99" fill="#d9d9d9" text-anchor="middle">/mdn-run &quot;&lt;task&gt;&quot;</text>
+  <rect x="316" y="356" width="152" height="64" rx="6" fill="#ffffff"/>
+    <rect x="316" y="356" width="152" height="64" rx="6" fill="#ffffff" stroke="#0a0a0a" stroke-width="1"/>
+    <text class="nm" x="392.0" y="382" fill="#0a0a0a" text-anchor="middle">Record first</text>
+    <text class="sb" x="392.0" y="399" fill="#595959" text-anchor="middle">init guard + task</text>
+  <rect x="452" y="260" width="192" height="64" rx="6" fill="#ffffff"/>
+    <rect x="452" y="260" width="192" height="64" rx="6" fill="#ffffff" stroke="#0a0a0a" stroke-width="1"/>
+    <text class="nm" x="548.0" y="286" fill="#0a0a0a" text-anchor="middle">ODD does the work</text>
+    <text class="sb" x="548.0" y="303" fill="#595959" text-anchor="middle">explore · odd doc · commits</text>
+  <rect x="640" y="356" width="152" height="64" rx="6" fill="#ffffff"/>
+    <rect x="640" y="356" width="152" height="64" rx="6" fill="#ffffff" stroke="#0a0a0a" stroke-width="1"/>
+    <text class="nm" x="716.0" y="382" fill="#0a0a0a" text-anchor="middle">Trace the run</text>
+    <text class="sb" x="716.0" y="399" fill="#595959" text-anchor="middle">mdn-trace.sh · git</text>
+  <rect x="824" y="56" width="152" height="64" rx="6" fill="#ffffff"/>
+    <rect x="824" y="56" width="152" height="64" rx="6" fill="#0a0a0a" stroke="#0a0a0a" stroke-width="1"/>
+    <text class="nm" x="900.0" y="82" fill="#ffffff" text-anchor="middle">Review</text>
+    <text class="sb" x="900.0" y="99" fill="#d9d9d9" text-anchor="middle">/mdn-done &lt;slug&gt;</text>
+  <rect x="824" y="356" width="152" height="64" rx="6" fill="#ffffff"/>
+    <rect x="824" y="356" width="152" height="64" rx="6" fill="#ffffff" stroke="#0a0a0a" stroke-width="1"/>
+    <text class="nm" x="900.0" y="382" fill="#0a0a0a" text-anchor="middle">Archive</text>
+    <text class="sb" x="900.0" y="399" fill="#595959" text-anchor="middle">/mdn-archive</text>
+  <rect x="380" y="160" width="152" height="64" rx="6" fill="#ffffff"/>
+    <rect x="380" y="160" width="152" height="64" rx="6" fill="#0a0a0a" fill-opacity="0.05" stroke="#404040" stroke-width="1"/>
+    <text class="nm" x="456.0" y="186" fill="#0a0a0a" text-anchor="middle">Code repo</text>
+    <text class="sb" x="456.0" y="203" fill="#595959" text-anchor="middle">odd/tasks/&lt;slug&gt;.md</text>
+  <rect x="556" y="160" width="152" height="64" rx="6" fill="#ffffff"/>
+    <rect x="556" y="160" width="152" height="64" rx="6" fill="#0a0a0a" fill-opacity="0.05" stroke="#404040" stroke-width="1"/>
+    <text class="nm" x="632.0" y="186" fill="#0a0a0a" text-anchor="middle">Engram</text>
+    <text class="sb" x="632.0" y="203" fill="#595959" text-anchor="middle">odd/&lt;slug&gt;/tasks</text>
+  <rect x="316" y="468" width="660" height="56" rx="6" fill="#ffffff"/>
+    <rect x="316" y="468" width="660" height="56" rx="6" fill="#0a0a0a" fill-opacity="0.05" stroke="#404040" stroke-width="1"/>
+    <text class="nm" x="646" y="490" fill="#0a0a0a" text-anchor="middle">Obsidian vault</text>
+    <text class="sb" x="646" y="508" fill="#595959" text-anchor="middle">project.md · logs/YYYY-MM.md · dashboard.md</text>
+
+  <!-- Legend -->
+  <line x1="40" y1="556" x2="1000" y2="556" stroke="#0a0a0a" stroke-opacity="0.14" stroke-width="0.8"/>
+  <text class="ey" x="40" y="574" fill="#404040">LEGEND</text>
+  <rect x="40" y="583" width="14" height="10" rx="2" fill="#0a0a0a" stroke="#0a0a0a"/><text class="lg" x="60" y="592" fill="#404040">Focal: entry and human gate</text>
+  <rect x="268" y="583" width="14" height="10" rx="2" fill="#ffffff" stroke="#0a0a0a"/><text class="lg" x="288" y="592" fill="#404040">Step</text>
+  <rect x="344" y="583" width="14" height="10" rx="2" fill="#0a0a0a" fill-opacity="0.05" stroke="#404040"/><text class="lg" x="364" y="592" fill="#404040">Store</text>
+  <line x1="440" y1="588" x2="468" y2="588" stroke="#404040" stroke-width="1.2" marker-end="url(#meridian-flow-arrow)"/><text class="lg" x="476" y="592" fill="#404040">Flow</text>
+  <line x1="544" y1="588" x2="572" y2="588" stroke="#404040" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#meridian-flow-arrow)"/><text class="lg" x="580" y="592" fill="#404040">Writes or mirrors to a store</text>
+</svg>
