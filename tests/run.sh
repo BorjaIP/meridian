@@ -58,6 +58,13 @@ else
   bad "trace-test.sh failed (run it directly for details)"
 fi
 
+# Log writer tests.
+if bash "$root/tests/log-test.sh" >/dev/null 2>&1; then
+  pass "log-test.sh passes"
+else
+  bad "log-test.sh failed (run it directly for details)"
+fi
+
 # Migration converter tests.
 if bash "$root/tests/migrate-test.sh" >/dev/null 2>&1; then
   pass "migrate-test.sh passes"
