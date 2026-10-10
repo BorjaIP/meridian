@@ -63,7 +63,7 @@ project: <slug>
 ```
 
 6. READ the history file back and confirm that every slug is present. Only then remove each block from `project.md` (the task line, its indented lines, and one adjacent blank line). Do not touch other tasks.
-7. Run `scripts/mdn-lint.sh <project.md>` (resolve it from the Meridian repository; if not found, say the check was skipped). A slug may now be reused by a new task: the history file is not linted.
+7. Run `scripts/mdn-lint.sh <project.md>` (look in `~/.config/meridian/scripts/` first, then the repository's `scripts/`; if not found, say the check was skipped). A slug may now be reused by a new task: the history file is not linted.
 8. Confirm:
 
 ```

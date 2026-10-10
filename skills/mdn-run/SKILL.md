@@ -32,7 +32,7 @@ The format of the project note and its blocks is defined in `docs/protocol.md`. 
 - Run in the main thread. Never run this skill as a subagent, and never launch gentle-ai as a subagent. ODD may delegate on its own; that is its decision.
 - Never run `gentle-ai review mode` or any receipt-driven development toggle.
 - Never set `status::done`. Only the human does that, from `review`.
-- Metadata (dates, branch, commits, diffstat, PR, odd documents) comes from `scripts/mdn-trace.sh`, never from your own recollection.
+- Metadata (dates, branch, commits, diffstat, PR, odd documents) comes from `mdn-trace.sh`, never from your own recollection.
 - All text written to the vault is in English.
 
 ## Init guard
@@ -54,7 +54,7 @@ Cross-project commands (`/mdn-daily`, `/mdn-status`) only require the config and
 2. Project: the `project:` argument; otherwise the project whose frontmatter `repo:` equals `git rev-parse --show-toplevel` of the current directory. If several or none match, ask once which project.
 3. READ `<vault>/meridian/<project>/project.md` and verify `project:` in the frontmatter.
 4. Repository: the note's `repo:`; otherwise the current git toplevel. If neither exists, ask the user once for the path and stop until answered.
-5. Resolve `scripts/mdn-trace.sh` and `scripts/mdn-lint.sh` from the Meridian repository (the directory containing this skill's `skills/` folder, or the install location). If a script is not found, continue and say which check was skipped.
+5. Resolve `mdn-trace.sh` and `mdn-lint.sh`: look in `~/.config/meridian/scripts/` first, then in the `scripts/` folder of the Meridian repository. If a script is not found, continue and say which check was skipped.
 
 ### 2. Select the task
 

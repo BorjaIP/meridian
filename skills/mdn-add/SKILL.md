@@ -61,7 +61,7 @@ Cross-project commands (`/mdn-daily`, `/mdn-status`) only require the config and
   **Acceptance:** <acceptance>
 ```
 
-5. READ the note back and confirm the line is present, then run `scripts/mdn-lint.sh <project.md>` (resolve it from the Meridian repository). Fix any diagnostic that points at the new task. If the script is not found, say the check was skipped.
+5. READ the note back and confirm the line is present, then run `scripts/mdn-lint.sh <project.md>` (look in `~/.config/meridian/scripts/` first, then the repository's `scripts/`). Fix any diagnostic that points at the new task. If the script is not found, say the check was skipped.
 6. Confirm:
 
 ```

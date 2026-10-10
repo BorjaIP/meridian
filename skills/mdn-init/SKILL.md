@@ -78,7 +78,7 @@ Create `<vault>/meridian/` if needed, then WRITE `<vault>/meridian/<slug>/projec
 
 No other file or folder is created. `TASK_HISTORY.md` appears later, when `/mdn-archive` first runs.
 
-Run `scripts/mdn-lint.sh <project.md>` (resolve it from the Meridian repository; if not found, say the check was skipped). A note with no tasks is valid.
+Run `scripts/mdn-lint.sh <project.md>` (look in `~/.config/meridian/scripts/` first, then the repository's `scripts/`; if not found, say the check was skipped). A note with no tasks is valid.
 
 ### 5. Confirm
 

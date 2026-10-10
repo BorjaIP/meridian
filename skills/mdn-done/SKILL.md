@@ -59,7 +59,7 @@ Cross-project commands (`/mdn-daily`, `/mdn-status`) only require the config and
 
 ### Finish
 
-8. READ the note back and confirm the task line, checkbox and note. Run `scripts/mdn-lint.sh <project.md>` (resolve it from the Meridian repository; if not found, say the check was skipped) and fix any diagnostic that points at this task.
+8. READ the note back and confirm the task line, checkbox and note. Run `scripts/mdn-lint.sh <project.md>` (look in `~/.config/meridian/scripts/` first, then the repository's `scripts/`; if not found, say the check was skipped) and fix any diagnostic that points at this task.
 9. Reply in one or two lines: slug, new status, and for a reopen the command to resume it: `/mdn-run task:<slug>`.
 
 ## Edge cases

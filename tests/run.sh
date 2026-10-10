@@ -72,4 +72,11 @@ else
   bad "skills-test.sh failed (run it directly for details)"
 fi
 
+# Installer tests (temp HOME, local source).
+if bash "$root/tests/install-test.sh" >/dev/null 2>&1; then
+  pass "install-test.sh passes"
+else
+  bad "install-test.sh failed (run it directly for details)"
+fi
+
 if [ "$fail" -eq 0 ]; then echo "all tests passed"; else echo "$fail test(s) failed"; exit 1; fi
