@@ -54,7 +54,7 @@ Cross-project commands (`/mdn-daily`, `/mdn-status`) only require the config and
 2. Project: the `project:` argument; otherwise the project whose frontmatter `repo:` equals `git rev-parse --show-toplevel` of the current directory. If several or none match, ask once which project.
 3. READ `<vault>/meridian/<project>/project.md` and verify `project:` in the frontmatter.
 4. Repository: the note's `repo:`; otherwise the current git toplevel. If neither exists, ask the user once for the path and stop until answered.
-5. Resolve `mdn-trace.sh` and `mdn-lint.sh`: look in `~/.config/meridian/scripts/` first, then in the `scripts/` folder of the Meridian repository. If a script is not found, continue and say which check was skipped.
+5. Resolve `mdn-trace.sh`, `mdn-lint.sh` and `mdn-log.sh`: look in `~/.config/meridian/scripts/` first, then in the `scripts/` folder of the Meridian repository. If `mdn-trace.sh` or `mdn-lint.sh` is not found, continue and say which check was skipped. Logging rule: all `mdn-log.sh event <vault>/meridian/<project> ...` calls below. If it is missing or fails, print a one-line warning and continue; logging must never fail or block the command.
 
 ### 2. Select the task
 
@@ -62,7 +62,7 @@ Cross-project commands (`/mdn-daily`, `/mdn-status`) only require the config and
 - **`task:<slug>`:** GREP the task line. It must be `owner::agent` and `backlog` or `in-progress`. Otherwise report its state and stop.
 - **`next`:** first `owner::agent status::backlog` line. If none, report that and stop.
 
-An `in-progress` task with a `**Run:**` block is a **resume**: keep its original `started` and `base`, skip step 3, and tell ODD to resume the feature `<slug>` ("retoma la feature <slug>").
+An `in-progress` task with a `**Run:**` block is a **resume**: keep its original `started` and `base`, skip step 3 except its log item (`run-started <slug> resumed`), and tell ODD to resume the feature `<slug>` ("retoma la feature <slug>").
 
 ### 3. Start: record before executing
 
@@ -73,6 +73,7 @@ An `in-progress` task with a `**Run:**` block is a **resume**: keep its original
    - Existing backlog task: EDIT `status::backlog` to `status::in-progress`.
    - Add `  **Run:** started <started> · ended · repo <repo> · branch <branch> · base <base>` after the existing blocks.
 4. READ the note back and confirm the line and the Run block are there. Run `mdn-lint.sh <project.md>`; fix any diagnostic before continuing.
+5. Log: for a new task first `created <slug> "agent/<type>"`; then `run-started <slug>` (on a resume `run-started <slug> resumed`).
 
 ### 4. Execute with ODD
 
@@ -99,6 +100,7 @@ Run `mdn-trace.sh finish <repo> <base> <snapshot-file> --slug <slug> --pr` (use 
 3. EDIT `status::in-progress` to `status::review`. Keep the checkbox `[ ]`.
 4. If ODD stopped on an unresolved question or a failure instead: set `status::blocked`, still write `ended` and the Trace with whatever exists, and add `  **Note:** <one-line reason>`.
 5. READ back and run `mdn-lint.sh <project.md>`.
+6. Log: `run-finished <slug> review "commits <n>"` when the task moved to review; `blocked <slug> "<reason>"` when it was blocked.
 
 ### 6. Report
 

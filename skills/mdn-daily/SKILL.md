@@ -31,11 +31,12 @@ Cross-project commands (`/mdn-daily`, `/mdn-status`) only require the config and
 ## Steps
 
 1. READ `${XDG_CONFIG_HOME:-$HOME/.config}/meridian/config.md`; take `vault:`. (The init guard guarantees it exists.)
-2. Discover projects: READ each `<vault>/meridian/*/project.md` and keep those with `status: active` in the frontmatter.
-3. For each project GREP the task lines (`/^- \[.\] #task/`) and collect three buckets, each task with its blocks:
-   - **A - Review:** `status::review` (any owner). Agent finished or you asked for review; it waits for `/mdn-done`.
-   - **B - Mine:** `owner::me` with `status::backlog` or `status::in-progress` (any priority).
-   - **C - Blocked:** `status::blocked` (any owner), with its `**Note:**` when present.
+2. Discover projects: for each `<vault>/meridian/*/project.md` READ only the frontmatter and keep those with `status: active`.
+3. For each active project run `mdn-index.sh <project.md>` (look in `~/.config/meridian/scripts/` first, then the repository's `scripts/`; if not found, say the digest is unavailable and stop). Build the report from its output only; do not read the whole note:
+   - **A - Review:** the `review=` lines (slug, owner, priority, title, trace text). Agent finished or you asked for review; it waits for `/mdn-done`.
+   - **B - Mine:** the `mine=` lines (`owner::me`, backlog or in-progress).
+   - **C - Blocked:** the `blocked=` lines, with the note when present.
+   READ a task's full block (GREP its `slug::`) only when you need a Trace link or Note for a task the digest listed. Never read `logs/`.
 4. Print the brief. Skip projects with no items. Within a project the order is A, then B, then C. Inside B, `priority::high` first.
 
 ```
@@ -48,7 +49,7 @@ Meridian Daily - <YYYY-MM-DD>
   [blocked] <slug>  <title>  [<owner>]  <note, if present>
 ```
 
-   - The trace is the first Markdown link of the `**Trace:**` block, printed as the link text; if the block has no link, print its first segment (`commits ...`).
+   - The trace is the `trace=` text of the digest line (the first Markdown link text, or the first segment such as `commits ...`).
    - After the brief print the actions that apply: `/mdn-done <slug>` for review items, `/mdn-run task:<slug>` for unblocked agent work the user wants started.
 
 5. Summary line, omitting zero counts:

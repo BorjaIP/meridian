@@ -76,15 +76,20 @@ Create `<vault>/meridian/` if needed, then WRITE `<vault>/meridian/<slug>/projec
 - `repo`: the path when known, otherwise remove the line.
 - The description line under the heading: the `description` argument if given, otherwise the line from "Description derivation" (formatted `> <line>`), otherwise the `> TODO: add a one-line description of this project.` placeholder.
 
-No other file or folder is created. `TASK_HISTORY.md` appears later, when `/mdn-archive` first runs.
+The `logs/` folder appears later, when the first event or `/mdn-archive` writes to it.
 
 Run `scripts/mdn-lint.sh <project.md>` (look in `~/.config/meridian/scripts/` first, then the repository's `scripts/`; if not found, say the check was skipped). A note with no tasks is valid.
+
+Log the creation: `mdn-log.sh event <vault>/meridian/<slug> init - "<description source>"` (the evidence file, `argument` or `placeholder`). Logging rule: look for `mdn-log.sh` in `~/.config/meridian/scripts/` first, then the repository's `scripts/`. If it is missing or fails, print a one-line warning and continue; logging must never fail or block the command.
+
+Dashboard: if `<vault>/meridian/dashboard.md` does not exist, create it by copying `~/.config/meridian/templates/Dashboard.md` (or the repository's `templates/Dashboard.md` when the installed copy is missing). If it exists, never overwrite it, even on a re-run; do not touch it. Skip silently if no template is found.
 
 ### 5. Confirm
 
 ```
 Project initialised: <vault>/meridian/<slug>/project.md
 Description: <the line, or "placeholder kept: <reason>">
+Dashboard: <created <vault>/meridian/dashboard.md | already present, kept>
 Evidence: <source file or command, or "none">
 
 Next:
@@ -121,4 +126,5 @@ Used by the init guard of the other commands (add, run, done, daily, status, arc
 - The project slug is the `project:` argument when the calling command received one; otherwise the kebab-case basename of the git toplevel (lower-case, non-alphanumeric runs to `-`). With no repo and no `project:` argument, stop and say so.
 - `title` defaults from the slug; `repo` is the git toplevel.
 - A description that cannot be derived stays a placeholder; do not ask.
-- Finish with a single line, then return control to the calling command: `Initialized <slug> (<vault>/meridian/<slug>/project.md); description: <line or placeholder>.`
+- Create `dashboard.md` only if missing (never overwrite) and do it silently, mentioning it only in the one-line summary.
+- Finish with a single line, then return control to the calling command: `Initialized <slug> (<vault>/meridian/<slug>/project.md); description: <line or placeholder>; dashboard <created|kept>.`

@@ -62,7 +62,8 @@ Cross-project commands (`/mdn-daily`, `/mdn-status`) only require the config and
 ```
 
 5. READ the note back and confirm the line is present, then run `scripts/mdn-lint.sh <project.md>` (look in `~/.config/meridian/scripts/` first, then the repository's `scripts/`). Fix any diagnostic that points at the new task. If the script is not found, say the check was skipped.
-6. Confirm:
+6. Log the creation: `mdn-log.sh event <vault>/meridian/<project> created <slug> "<owner>/<type>"`. Logging rule: look for `mdn-log.sh` in `~/.config/meridian/scripts/` first, then the repository's `scripts/`. If it is missing or fails, print a one-line warning and continue; logging must never fail or block the command.
+7. Confirm:
 
 ```
 Task added to <project>: "<title>" [owner::<owner> status::backlog type::<type> priority::<priority> slug::<slug>]
