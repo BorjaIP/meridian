@@ -58,4 +58,11 @@ else
   bad "trace-test.sh failed (run it directly for details)"
 fi
 
+# Migration converter tests.
+if bash "$root/tests/migrate-test.sh" >/dev/null 2>&1; then
+  pass "migrate-test.sh passes"
+else
+  bad "migrate-test.sh failed (run it directly for details)"
+fi
+
 if [ "$fail" -eq 0 ]; then echo "all tests passed"; else echo "$fail test(s) failed"; exit 1; fi
