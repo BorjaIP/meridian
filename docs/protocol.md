@@ -82,7 +82,7 @@ Blocks are indented by two spaces and follow the task line. Order: Title, Descri
   **Title:** <imperative string>
   **Description:** <free text>
   **Acceptance:** <definition of done>          (optional)
-  **Run:** started <YYYY-MM-DD HH:MM> · ended <YYYY-MM-DD HH:MM> · repo <path> · branch <name>
+  **Run:** started <YYYY-MM-DD HH:MM> · ended <YYYY-MM-DD HH:MM> · repo <path> · branch <name> · base <sha>
   **Trace:** [<label>](<link>) · engram <topic_key> · commits <sha, sha> · PR <#n or url>
 ```
 
@@ -94,6 +94,7 @@ Written when execution starts and completed when it ends.
 
 - `started` is set when the task moves to `in-progress`. `ended` stays empty until execution stops (`ended` with no value).
 - `repo` is the absolute path of the working repository; `branch` is the branch the work was done on.
+- `base` (optional) is the short sha of `HEAD` when the run started; commits in `**Trace:**` are those after it. Resuming a run keeps the original `started` and `base`.
 - Values come from deterministic commands (`date`, `git rev-parse --abbrev-ref HEAD`), not from model self-report.
 
 ### Trace

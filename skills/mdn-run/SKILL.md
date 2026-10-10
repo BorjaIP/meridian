@@ -2,140 +2,105 @@
 name: mdn-run
 model: medium
 description: >
-  Meridian execution skill. Finds the first approved agent task in a project and executes
-  it. If the task has a linked Plan index, loads all referenced artifacts and executes
-  following the plan. If the task has no plan, executes it directly using its Title,
-  Description, and Acceptance as the prompt. Accepts an optional `task:` argument to run
-  a specific backlog agent task directly (simple flow) without requiring a plan or approve
-  step. Use when the user says "run the next task", "execute the plan", "start working on
-  the approved task", "run this task directly", or runs `/mdn-run project:<slug>`.
+  Meridian execution skill and the single trigger of the ODD flow. Records a task in the
+  Meridian project note before work starts, runs the work through the gentle-ai ODD
+  workflow in the main thread, then completes the Run and Trace metadata from git/gh and
+  moves the task to review. Accepts a free-text description, `task:<slug>` to run or
+  resume an existing task, or `next` for the first agent backlog task. Use when the user
+  says "run this", "implement this and track it", "run the next task", "resume the task",
+  "retoma la feature", or runs `/mdn-run`.
 ---
-
-## Two flows
-
-**Advanced flow** (no `task:` arg): finds first `owner::agent status::approved` task → Mode A (has Artifact) or Mode B (no Artifact) → executes → marks done.
-
-**Simple flow** (`task:<title>` given): finds matching `owner::agent status::backlog` task → always Mode B → executes → marks done.
 
 ## Invocation
 
 ```
-/mdn-run project:<slug> [task:<title>] [loop-id:<id>]
+/mdn-run "<description>" [project:<slug>] [priority:high|medium|low] [type:feature|fix|research|chore]
+/mdn-run task:<slug> [project:<slug>]
+/mdn-run next [project:<slug>]
 ```
 
-| Argument | Required | Description |
-|---|---|---|
-| `project` | yes | Meridian project slug |
-| `task` | no | Title of backlog agent task (simple flow). Omit for advanced flow. |
-| `loop-id` | no | Loop identifier from `mdn-loop`. When present, stamp the executed task and its verify checkpoint with `loop-id::<id>`. |
+| Form | Meaning |
+|---|---|
+| `"<description>"` | Create a new task and run it. Defaults: `priority::medium`, `type` inferred. |
+| `task:<slug>` | Run an existing `owner::agent` task in `backlog`, or resume one `in-progress`. |
+| `next` | First `owner::agent status::backlog` task in the project. |
 
-## Execution steps
+The format of the project note and its blocks is defined in `docs/protocol.md`. Primitives used below: READ, GREP, EDIT (inline field or checkbox), INSERT (block after a line), WRITE.
 
-### Step 0 — Resolve config
-Read `${XDG_CONFIG_HOME:-~/.config}/meridian/config.md`. Extract `vault`. Run Date generation snippet → `<NOW>`. If missing: tell user to run `/mdn-init`.
+## Rules
 
-### Step 1 — Find project note
-Read `<vault>/meridian/<slug>/PROJECT.md`. Verify `project: <slug>` in frontmatter. If missing: suggest `/mdn-init name:<slug>`.
+- Run in the main thread. Never run this skill as a subagent, and never launch gentle-ai as a subagent. ODD may delegate on its own; that is its decision.
+- Never run `gentle-ai review mode` or any receipt-driven development toggle.
+- Never set `status::done`. Only the human does that, from `review`.
+- Metadata (dates, branch, commits, diffstat, PR, odd documents) comes from `scripts/mdn-trace.sh`, never from your own recollection.
+- All text written to the vault is in English.
 
-### Step 2 — Find the next task
+## Steps
 
-**Simple flow:** scan `## Tasks` for `- [ ]` + `owner::agent` + `status::backlog` + `**Title:**` matching `task:` value (case-insensitive). If not found: also check `status::approved` tasks matching the title. If still not found: report and stop. → Mode B.
+### 1. Resolve config, project and repo
 
-**Advanced flow (no `task:` arg):** scan `## Tasks` for first `- [ ]` + `owner::agent` + `status::approved`. If none: report "No approved agent tasks in `<slug>`." and suggest checking `status::review` tasks.
+1. READ `${XDG_CONFIG_HOME:-$HOME/.config}/meridian/config.md`; take `vault:`. Take the optional `delivery:` value (a free-text sentence such as "single PR; I accept size:exception"). If the config is missing, tell the user to run `/mdn-init`.
+2. Project: the `project:` argument; otherwise the project whose frontmatter `repo:` equals `git rev-parse --show-toplevel` of the current directory. If several or none match, ask once which project.
+3. READ `<vault>/meridian/<project>/project.md` and verify `project:` in the frontmatter.
+4. Repository: the note's `repo:`; otherwise the current git toplevel. If neither exists, ask the user once for the path and stop until answered.
+5. Resolve `scripts/mdn-trace.sh` and `scripts/mdn-lint.sh` from the Meridian repository (the directory containing this skill's `skills/` folder, or the install location). If a script is not found, continue and say which check was skipped.
 
-### Step 3 — Determine execution mode
+### 2. Select the task
 
-**Mode A** (task has `**Artifact:** [[<plan-name>]]`): extract `<plan-name>`, read `<vault>/meridian/<slug>/plans/<plan-name>.md`. If missing: report error, suggest `/mdn-load` or `/mdn-plan`, stop.
+- **New description:** derive a kebab-case slug (2 to 5 words, `^[a-z0-9]+(-[a-z0-9]+)*$`) and make it unique: GREP `slug::<slug>` in the note, and check that `<repo>/odd/tasks/<slug>.md` does not exist; on collision append `-2`, `-3`.
+- **`task:<slug>`:** GREP the task line. It must be `owner::agent` and `backlog` or `in-progress`. Otherwise report its state and stop.
+- **`next`:** first `owner::agent status::backlog` line. If none, report that and stop.
 
-**Mode B** (no `**Artifact:**`): Title + Description + Acceptance are the full execution context.
+An `in-progress` task with a `**Run:**` block is a **resume**: keep its original `started` and `base`, skip step 3, and tell ODD to resume the feature `<slug>` ("retoma la feature <slug>").
 
-### Step 4 — Transition to in-progress
-- Simple flow: `status::backlog` → `status::in-progress`
-- Advanced flow: `status::approved` → `status::in-progress`
-- Upsert row: `| <title> | [[<plan>]] or — | agent | in-progress |`
+### 3. Start: record before executing
 
-### Step 5 — Read artifacts (Mode A only)
-Read `## Artifacts` table in plan index. For each row:
-- Wikilink `[[path/to/doc]]` → resolve to `<vault>/path/to/doc.md`
-- Absolute path → read directly
-- Other → try as-is, then vault-relative
+1. Run `mdn-trace.sh start <repo>`. Save its full output to a scratch file (it is the snapshot you pass to `finish`). Keep `branch`, `base`, `started`.
+2. If `git status --porcelain` shows uncommitted changes, record `dirty tree at start` in a `**Note:**` line. Do not stash, reset or clean anything.
+3. Write the task to `project.md`:
+   - New task: append under `## Tasks` the line `- [ ] #task owner::agent status::in-progress priority::<p> type::<t> slug::<slug>` with `**Title:**` and `**Description:**` (and `**Acceptance:**` when the user gave one).
+   - Existing backlog task: EDIT `status::backlog` to `status::in-progress`.
+   - Add `  **Run:** started <started> · ended · repo <repo> · branch <branch> · base <base>` after the existing blocks.
+4. READ the note back and confirm the line and the Run block are there. Run `mdn-lint.sh <project.md>`; fix any diagnostic before continuing.
 
-Warn on unreadable artifacts but continue. Combined artifact content + Plan Summary + Key Points + Execution Order = execution context.
+### 4. Execute with ODD
 
-### Step 6 — Execute
+Do the work in this thread. The gentle-ai ODD workflow applies automatically; treat the request as an explicit implementation request. Build the working prompt from the Title, Description and Acceptance, and add:
 
-**Mode A:** follow Plan's Execution Order precisely. Use artifact content as context. Acceptance criteria = definition of done.
+- "Use `<slug>` as the ODD feature name (`odd/tasks/<slug>.md`)."
+- The `delivery:` sentence from the config, verbatim, when present.
 
-**Mode B:** Title = goal, Description = context, Acceptance = definition of done. Execute directly.
+Follow ODD as it dictates (exploration, task document, tests, work-unit commits). Do not push or open a pull request unless the user or ODD's delivery strategy says so.
 
-Do not mark complete until all acceptance criteria are met.
+If ODD asks the user a question, wait for the answer. Never answer for the user.
 
-### Step 7 — Mark done
-1. `- [ ]` → `- [x]`
-2. `status::in-progress` → `status::done`
-3. Append: `**Note:** <one-line summary of what was done>`
-4. Remove row from `## Tasks` table.
-5. Mode A only: update `## Plans` table row status → `done`.
+### 5. Finish: complete the metadata
 
-### Step 7.5 — Sync plan note status (Mode A only)
-Read `<vault>/meridian/<slug>/plans/<plan-name>.md`. Replace `^status:\s*.*$` in frontmatter with `status: done`. Write back. Warn if missing.
+Run `mdn-trace.sh finish <repo> <base> <snapshot-file> --slug <slug> --pr` (use `--pr` only when a remote exists; the script tolerates a missing `gh`). Then update the note:
 
-### Step 8 — Post-action task resolution
-Scan `owner::me status::backlog` tasks. For each whose title/description semantically matches the completed task (signal words: completed task keywords + "run", "execute", "ejecutar", "mdn-run"):
-1. `status::backlog` → `status::done`
-2. `- [ ]` → `- [x]`
-3. Append: `**Completed by:** /mdn-run on <YYYY-MM-DD>`
+1. EDIT the Run block: fill `ended <ended>`.
+2. INSERT `**Trace:**` after the Run block, segments joined by ` · `:
+   - For each `odd_doc` (the slug document first): `[<relative path>](<unc_link>)`.
+   - `engram odd/<slug>/tasks`, only when an odd document exists. If the real document name differs from the slug (the model ignored it), use the detected name and record it, e.g. `engram odd/<real-name>/tasks`.
+   - `commits <shas separated by ", ">` from `commits`; write `commits` with nothing after it if there are none.
+   - `PR <value>` when `pr` is non-empty.
+   - When no odd document was created (small task): omit the link and engram segments and add `diffstat <diffstat_committed>`; add the uncommitted diffstat when non-empty.
+3. EDIT `status::in-progress` to `status::review`. Keep the checkbox `[ ]`.
+4. If ODD stopped on an unresolved question or a failure instead: set `status::blocked`, still write `ended` and the Trace with whatever exists, and add `  **Note:** <one-line reason>`.
+5. READ back and run `mdn-lint.sh <project.md>`.
 
-### Step 9 — Create verification checkpoint
-Insert immediately below the completed task block.
+### 6. Report
 
-If `loop-id:<id>` was supplied, include `loop-id::<id>` on the checkbox line of
-both the completed task (if not already stamped) and the verify checkpoint, so the
-Reviewer can scope its pass to the current loop.
+Reply briefly: task title and slug, final status, what changed in one or two lines, and the trace (odd document path, commits, diffstat, PR). Say that the task is waiting for the human review and that `/mdn-done` (or editing the note) closes it.
 
-**Mode A:**
-```markdown
-- [ ] #task owner::me status::review type::review priority::high [loop-id::<id>]
-  **Title:** Verify: <completed task title>
-  **Description:** Agent completed execution. Review the output and confirm it meets the acceptance criteria. Approve to close the loop, or add a new task if corrections are needed.
-  **Artifact:** [[<plan-name>]]
-```
+## Edge cases
 
-**Mode B:**
-```markdown
-- [ ] #task owner::me status::review type::review priority::high [loop-id::<id>]
-  **Title:** Verify: <completed task title>
-  **Description:** Agent completed execution. Review the output and confirm it meets the acceptance criteria. Approve to close the loop, or add a new task if corrections are needed.
-```
-
-Omit `loop-id::<id>` when the argument was not supplied.
-
-Upsert row: `| Verify: <title> | [[<plan>]] or — | me | review |`
-
-### Step 10 — Confirm to user
-
-**Mode A:**
-```
-✓  Task done: "<task title>"
-✓  Plan: [[<plan-name>]]
-
-<brief summary of what was executed and what changed>
-
-▸  Verification task created: "Verify: <task title>" [owner::me status::review]
-   Review the output and mark it done, or add a correction task.
-```
-
-**Mode B:**
-```
-✓  Task done: "<task title>" (planless)
-
-<brief summary>
-
-▸  Verification task created: "Verify: <task title>" [owner::me status::review]
-```
-
-## Meridian protocol reference
-
-- State machine: `backlog → planning → review → approved → in-progress → done`
-- Plan index: `<vault>/meridian/<slug>/plans/<plan-name>.md`
-- Artifacts: vault wikilink, absolute path, or custom string (as stored by mdn-load)
+| Case | Handling |
+|---|---|
+| ODD created no document | Trace has commits and diffstat only; no engram topic. |
+| Model ignored the slug | Use the changed odd document `finish` reports and record its real name. |
+| Session interrupted | The task stays `in-progress` with its Run block. `/mdn-run task:<slug>` resumes it and keeps the original `started` and `base`. |
+| ODD asks a question | Wait for the user; do not answer or assume. |
+| Dirty tree at start | Note it; never stash, reset or clean. |
+| Repository unknown | Ask once, then stop until answered. |
+| `finish` reports no commits and no changes | Still move to `review`, with a Trace that says `commits` and a `**Note:**` that nothing changed. |
