@@ -29,9 +29,10 @@ h="$(newhome)"; run_install "$h"
 if [ "$rc" -eq 0 ]; then pass "fresh install exits 0"; else bad "fresh install exit $rc: $out"; fi
 ok=1; for s in "${skills[@]}"; do [ -s "$h/.claude/skills/$s/SKILL.md" ] || ok=0; done
 [ "$ok" -eq 1 ] && pass "7 skills installed for claude" || bad "missing skills under .claude/skills"
-ok=1; for s in mdn-lint.sh mdn-trace.sh mdn-migrate.sh; do [ -x "$h/.config/meridian/scripts/$s" ] || ok=0; done
-[ "$ok" -eq 1 ] && pass "scripts installed and executable" || bad "scripts missing or not executable"
+ok=1; for s in mdn-lint.sh mdn-trace.sh mdn-migrate.sh mdn-log.sh mdn-index.sh; do [ -x "$h/.config/meridian/scripts/$s" ] || ok=0; done
+[ "$ok" -eq 1 ] && [ "$(ls "$h/.config/meridian/scripts" | wc -l)" -eq 5 ] && pass "5 scripts installed and executable" || bad "scripts missing or not executable"
 [ -s "$h/.config/meridian/templates/Project.md" ] && pass "template installed" || bad "template missing"
+[ -s "$h/.config/meridian/templates/Dashboard.md" ] && pass "Dashboard template installed" || bad "Dashboard template missing"
 [ ! -e "$h/.codex" ] && pass "claude install does not touch .codex" || bad ".codex created by claude install"
 if grep -q '^model: haiku' "$h/.claude/skills/mdn-add/SKILL.md" \
    && grep -q '^model: sonnet' "$h/.claude/skills/mdn-run/SKILL.md"; then
@@ -69,6 +70,22 @@ else bad "retired dir missing moved skills"; fi
 grep -q keep "$h/.claude/skills/other-skill/SKILL.md" && pass "unrelated skill untouched" || bad "unrelated skill touched"
 printf '%s' "$out" | grep -q "mdn-plan" && pass "output lists moved skills" || bad "output does not list moved skills"
 grep -q "^name: mdn-add" "$h/.claude/skills/mdn-add/SKILL.md" && pass "differing skill overwritten with new" || bad "skill not overwritten"
+
+# 4b. Stale templates are moved into the retired dir, never deleted.
+h="$(newhome)"; mkdir -p "$h/.config/meridian/templates"
+echo "old plan" > "$h/.config/meridian/templates/Plan.md"; echo "old task" > "$h/.config/meridian/templates/Task.md"
+run_install "$h"
+retired="$(ls -d "$h"/.config/meridian/retired-skills-* 2>/dev/null | head -1)"
+if [ ! -e "$h/.config/meridian/templates/Plan.md" ] && [ ! -e "$h/.config/meridian/templates/Task.md" ] \
+   && [ -n "$retired" ] && grep -q "old plan" "$retired/templates/Plan.md" && grep -q "old task" "$retired/templates/Task.md"; then
+  pass "stale Plan.md and Task.md moved to retired dir"
+else bad "stale templates not moved"; fi
+printf '%s' "$out" | grep -q "Plan.md" && pass "output lists moved templates" || bad "output does not list moved templates"
+before="$(sum "$h")"; run_install "$h"; after="$(sum "$h")"
+[ "$rc" -eq 0 ] && [ "$before" = "$after" ] && pass "second run after template retirement is idempotent" || bad "second run changed the tree"
+h="$(newhome)"; mkdir -p "$h/.config/meridian/templates"; echo "old plan" > "$h/.config/meridian/templates/Plan.md"
+before="$(sum "$h")"; run_install "$h" --dry-run; after="$(sum "$h")"
+[ "$rc" -eq 0 ] && [ "$before" = "$after" ] && pass "--dry-run leaves stale templates in place" || bad "--dry-run touched stale templates"
 
 # 5. Dry run changes nothing.
 h="$(newhome)"; mkdir -p "$h/.claude/skills/mdn-plan"; echo old > "$h/.claude/skills/mdn-plan/SKILL.md"

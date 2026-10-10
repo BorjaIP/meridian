@@ -152,7 +152,7 @@ esac
 
 echo "Installing scripts -> ${CONFIG_DIR}/scripts"
 act mkdir -p "${CONFIG_DIR}/scripts"
-for f in "${SRC}"/scripts/mdn-*.sh; do
+for f in "${SRC}"/scripts/*.sh; do
   act install -m 0755 "$f" "${CONFIG_DIR}/scripts/$(basename "$f")"
   echo "  + $(basename "$f")"
 done
@@ -162,6 +162,16 @@ act mkdir -p "${CONFIG_DIR}/templates"
 for f in "${SRC}"/templates/*.md; do
   act install -m 0644 "$f" "${CONFIG_DIR}/templates/$(basename "$f")"
   echo "  + $(basename "$f")"
+done
+
+# Templates of the retired plan/task format: move aside, never delete.
+for t in Plan.md Task.md; do
+  if [[ -f "${CONFIG_DIR}/templates/${t}" && ! -f "${SRC}/templates/${t}" ]]; then
+    ensure_retired_dir
+    act mkdir -p "${RETIRED_DIR}/templates"
+    act mv "${CONFIG_DIR}/templates/${t}" "${RETIRED_DIR}/templates/${t}"
+    echo "  moved stale template ${t} -> ${RETIRED_DIR}/templates/"
+  fi
 done
 
 # ── Done ─────────────────────────────────────────────────────────────────────
