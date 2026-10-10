@@ -1,6 +1,10 @@
 # Workflow
 
-One task, from request to done. Format details are in [protocol.md](protocol.md).
+One task, from request to done. Format details are in [protocol.md](protocol.md). The diagram below shows the whole flow; how Meridian and gentle-ai divide the work is in the [README](../README.md#how-meridian-uses-gentle-ai).
+
+![How a Meridian task flows](images/meridian-flow.svg)
+
+Editable source: [diagrams/meridian-flow.html](diagrams/meridian-flow.html); its style profile is [diagrams/style-profile-meridian.md](diagrams/style-profile-meridian.md).
 
 ## 1. Initialize (once per project)
 

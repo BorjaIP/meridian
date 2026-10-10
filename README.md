@@ -6,25 +6,56 @@
 
 > A human traceability ledger for agent work: what was asked, when it ran, and where the evidence is.
 
-Meridian keeps one Markdown note per project in your Obsidian vault. Each task in it records the request, the run (dates, repository, branch) and a trace that points to the evidence: the task document that the [gentle-ai](https://github.com/Gentleman-Programming/gentle-ai) ODD workflow wrote in the repository, the commits, and the pull request.
+Meridian keeps one Markdown note per project in your Obsidian vault. Each task in it records the request, the run (dates, repository, branch) and a trace that points to the evidence.
 
-Meridian does not plan or orchestrate. In a Claude Code session with gentle-ai v4, ODD (Organic Driven Development) runs by default on every request. Meridian wraps that run: it records the task before work starts, lets ODD do the work, then fills the metadata from git and moves the task to `review` for you.
+**Division of labour:** Meridian records and points; [gentle-ai](https://github.com/Gentleman-Programming/gentle-ai) (v4, Organic Driven Development plus Engram) generates, executes and remembers the work. Meridian does not plan or orchestrate: `/mdn-run` records the task before work starts, lets ODD do the work, then fills the metadata from git and moves the task to `review` for you.
 
-```
- you ──> /mdn-run "fix the login redirect"
-           │ 1. write the task in the vault note (in-progress + Run)
-           │ 2. ODD does the work in the repo (odd/tasks/<slug>.md, commits)
-           │ 3. metadata from git/gh -> Trace, status -> review
-           ▼
- you <── review the result, then /mdn-done <slug>
-```
+![How a Meridian task flows](docs/images/meridian-flow.svg)
 
-→ [Concepts](docs/concepts.md) · [Workflow](docs/workflow.md)
+*One task from request to archive. Editable source: [docs/diagrams/meridian-flow.html](docs/diagrams/meridian-flow.html).*
+
+## How Meridian uses gentle-ai
+
+| gentle-ai produces | Meridian records |
+|---|---|
+| `odd/tasks/<slug>.md`, the task document, in the repository | The task line with its status in `project.md` |
+| Work-unit commits on the feature branch | The Run block: start and end, repo, branch, base |
+| An Engram mirror under the topic `odd/<slug>/tasks` | The Trace: link to the `odd/` document (a Windows UNC path), commits, PR |
+| | The monthly log `logs/YYYY-MM.md` and the dashboard |
+
+How the two connect:
+
+- gentle-ai v4 has no workflow commands to learn. ODD applies to every request by itself; `/mdn-run` is the only trigger Meridian adds.
+- `/mdn-run` writes the task to the vault note **before** the work, then asks ODD to use the task slug as the feature name (`odd/tasks/<slug>.md`).
+- If the Meridian config has a `delivery:` sentence, it is passed to ODD verbatim.
+- `/mdn-run` runs in the main thread, never as a subagent, and never toggles gentle-ai's receipt-driven review switch.
+- Run and Trace are filled from git and `gh` by `mdn-trace.sh`, not from the model's own summary.
+- Review is yours: the run ends in `review`, and only `/mdn-done` closes a task.
+
+What is not guaranteed:
+
+- The model can ignore the slug. Meridian then records the real document name it detects.
+- Small tasks create no ODD document. The Trace then carries commits and a diffstat only.
+- Skill steps are instructions; how faithfully they are followed depends on the model.
+- gentle-ai may ask you questions mid-run; `/mdn-run` waits for your answer.
+- Meridian cannot ask ODD for its progress. Task state comes from the run itself.
+- Windows UNC links are meant for WSL; elsewhere they are plain text pointers.
+
+## Where things live
+
+| What | Where |
+|---|---|
+| Config, scripts, templates | `~/.config/meridian/` |
+| Project note with all tasks | `<vault>/meridian/<project>/project.md` |
+| Archived tasks and events | `<vault>/meridian/<project>/logs/YYYY-MM.md` |
+| Dashboard (Dataview) | `<vault>/meridian/dashboard.md` |
+| ODD task document | `<repo>/odd/tasks/<slug>.md` |
+| Engram mirror | topic `odd/<slug>/tasks` |
 
 ## Requirements
 
 - An Obsidian vault (any folder of Markdown works; Obsidian is only the viewer).
-- [Claude Code](https://claude.com/claude-code) with gentle-ai v4 for `/mdn-run` (it relies on ODD). Codex gets the skills installed, but the ODD flow is only designed and exercised for Claude Code with gentle-ai.
+- [Claude Code](https://claude.com/claude-code) with [gentle-ai](https://github.com/Gentleman-Programming/gentle-ai) v4.0.0 or later for `/mdn-run`. SDD was retired in v4 and ODD is the default workflow, which `/mdn-run` relies on. Codex gets the skills installed, but the ODD flow is only designed for Claude Code with gentle-ai.
 - `git` (required by `/mdn-run`); `gh` optional, for the pull request field.
 - bash, awk, sed, grep and coreutils for the helper scripts (the lint script was tested with gawk). Links to repository documents are Windows UNC paths and are meant for WSL; elsewhere they are plain text pointers.
 
@@ -86,7 +117,9 @@ Every command other than `/mdn-init` checks that Meridian is initialized and, if
 
 - The Markdown protocol is agent-agnostic; the installers are not. Only Claude Code and Codex installers exist.
 - Skills are instructions for a model. How faithfully they are followed depends on the model; the scripts and `mdn-lint.sh` exist to check the parts that can be checked mechanically.
-- Metadata comes from git and `gh`, not from the model's account of itself, but `/mdn-run` end-to-end behavior is validated by use, not by automated tests.
+- Metadata comes from git and `gh`, not from the model's account of itself.
+- The `/mdn-run` flow was validated end to end in a sandbox and on the author's own vault. It has not been verified in a fresh session by other people, and it has no automated tests.
+- The flow diagram was rendered and checked by eye only, in a rasterizer with a fallback font; the intended fonts and GitHub's rendering were not checked.
 - The vault and the repository are separate: the vault holds pointers, the `odd/` documents live in the repository.
 
 ## Migrating from the old format

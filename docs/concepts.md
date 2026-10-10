@@ -12,7 +12,7 @@ It deliberately does not plan, schedule or execute. Those jobs belong to other t
 | Agent memory | Engram |
 | Human record: request, run, evidence, review | **Meridian** (a Markdown note in your vault) |
 
-There are no gentle-ai workflow commands to learn. You describe the work; ODD handles it; Meridian records it.
+There are no gentle-ai workflow commands to learn. You describe the work; ODD handles it; Meridian records it. What each side produces is in the README section [How Meridian uses gentle-ai](../README.md#how-meridian-uses-gentle-ai), and the flow is drawn in [workflow.md](workflow.md).
 
 ## The vault and the repository
 
