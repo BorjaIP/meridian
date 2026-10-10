@@ -83,7 +83,24 @@ b2="$(sum "$repo/vault/proj")"
 bash "$mig" "$repo/vault/proj" --apply >/dev/null 2>&1; rc=$?
 [ "$rc" -ne 0 ] && [ "$(sum "$repo/vault/proj")" = "$b2" ]; check "--apply refuses a dirty tree" "$?"
 
-# 7. Usage errors.
+# 7. --apply refuses a git-ignored project dir unless --force-ignored.
+rm -rf "$repo"; mkdir -p "$repo/vault"
+git -C "$repo" init -q; git -C "$repo" config user.email t@example.com; git -C "$repo" config user.name t
+echo "vault/" > "$repo/.gitignore"
+git -C "$repo" add -A; git -C "$repo" commit -qm init
+cp -a "$fx" "$repo/vault/proj"
+b3="$(sum "$repo/vault/proj")"
+out="$(bash "$mig" "$repo/vault/proj" --apply 2>&1)"; rc=$?
+[ "$rc" -ne 0 ] && [ "$(sum "$repo/vault/proj")" = "$b3" ]; check "--apply refuses a git-ignored dir and changes nothing" "$?"
+printf '%s\n' "$out" | grep -q -- '--force-ignored' && printf '%s\n' "$out" | grep -qi 'tarball'
+check "refusal names --force-ignored and recommends a tarball" "$?"
+bash "$mig" "$repo/vault/proj" --dest "$tmp/ign-dry/proj" >/dev/null 2>&1; rc=$?
+check "dry-run on a git-ignored dir still works" "$rc"
+bash "$mig" "$repo/vault/proj" --apply --force-ignored >/dev/null 2>&1; rc=$?
+check "--apply --force-ignored proceeds" "$rc"
+[ -f "$repo/vault/proj/archive-legacy/project.legacy.md" ]; check "--force-ignored applied the migration" "$?"
+
+# 8. Usage errors.
 bash "$mig" "$fx" >/dev/null 2>&1; rc=$?
 [ "$rc" -ne 0 ]; check "no mode given is an error" "$?"
 [ "$(sum "$fx")" = "$before" ]; check "fixture unchanged at the end" "$?"

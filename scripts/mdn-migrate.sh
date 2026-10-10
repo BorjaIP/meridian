@@ -3,12 +3,14 @@
 #
 # Usage:
 #   mdn-migrate.sh <project-dir> --dest <dir> [--repo <path>]   dry run on a copy
-#   mdn-migrate.sh <project-dir> --apply [--repo <path>]        in place
+#   mdn-migrate.sh <project-dir> --apply [--repo <path>] [--force-ignored]   in place
 #
 # Dry run copies <project-dir> into <dir> (must not exist or be empty) and migrates
 # the copy; the source is never modified. --apply requires a clean git tree for
 # <project-dir> (when it is inside a repository). Legacy files are moved to
-# <project-dir>/archive-legacy/, never deleted. See docs/protocol.md section 7.
+# <project-dir>/archive-legacy/, never deleted. If <project-dir> is git-ignored the
+# clean-tree guard is vacuous and git cannot undo the change, so --apply refuses
+# unless --force-ignored is given (take a tarball backup first). See docs/protocol.md section 7.
 # Requires only bash, awk, sed, grep and coreutils.
 
 set -u
@@ -18,17 +20,18 @@ lint="$here/mdn-lint.sh"
 
 usage() {
   echo "usage: ${0##*/} <project-dir> --dest <dir> [--repo <path>]" >&2
-  echo "       ${0##*/} <project-dir> --apply [--repo <path>]" >&2
+  echo "       ${0##*/} <project-dir> --apply [--repo <path>] [--force-ignored]" >&2
   exit 2
 }
 die() { echo "error: $*" >&2; exit 1; }
 
-src=""; dest=""; apply=0; repo=""
+src=""; dest=""; apply=0; repo=""; force_ignored=0
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --dest)  [ "$#" -ge 2 ] || usage; dest="$2"; shift 2 ;;
     --repo)  [ "$#" -ge 2 ] || usage; repo="$2"; shift 2 ;;
     --apply) apply=1; shift ;;
+    --force-ignored) force_ignored=1; shift ;;
     -h|--help) usage ;;
     -*) usage ;;
     *) [ -z "$src" ] || usage; src="$1"; shift ;;
@@ -52,6 +55,10 @@ fi
 work="$src"
 if [ "$apply" -eq 1 ]; then
   if git -C "$src" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    if git -C "$src" check-ignore -q -- "$src/project.md" 2>/dev/null && [ "$force_ignored" -eq 0 ]; then
+      die "$src is git-ignored: git cannot show or undo this change and the clean-tree check is vacuous.
+Back it up first with a tarball (e.g. tar czf backup.tar.gz -C \"\$(dirname \"$src\")\" \"$(basename "$src")\"), then re-run with --force-ignored."
+    fi
     if [ -n "$(git -C "$src" status --porcelain -- . 2>/dev/null)" ]; then
       die "uncommitted changes in $src; commit or stash them before --apply"
     fi
