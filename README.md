@@ -10,7 +10,9 @@ Meridian keeps one Markdown note per project in your Obsidian vault. Each task i
 
 **Division of labour:** Meridian records and points; [gentle-ai](https://github.com/Gentleman-Programming/gentle-ai) (v4, Organic Driven Development plus Engram) generates, executes and remembers the work. Meridian does not plan or orchestrate: `/mdn-run` records the task before work starts, lets ODD do the work, then fills the metadata from git and moves the task to `review` for you.
 
-![How a Meridian task flows](docs/images/meridian-flow.svg)
+<p align="center">
+  <img src="docs/images/meridian-flow.svg" alt="How a Meridian task flows" width="900" />
+</p>
 
 *One task from request to archive. Editable source: [docs/diagrams/meridian-flow.html](docs/diagrams/meridian-flow.html).*
 
