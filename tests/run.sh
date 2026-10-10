@@ -51,11 +51,28 @@ else
   bad "valid-run.md should pass; got: $out"
 fi
 
+# Long descriptions only warn: exit 0, file:line: warning: message.
+out="$(bash "$lint" "$fx/warn-long-description.md" 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] \
+  && printf '%s\n' "$out" | grep -qE '^[^:]+:[0-9]+: warning: description is [0-9]+ chars \(over 600\)' \
+  && [ "$(printf '%s\n' "$out" | grep -c 'warning:')" -eq 2 ]; then
+  pass "warn-long-description.md warns and exits 0"
+else
+  bad "warn-long-description.md: expected 2 warnings and exit 0; rc=$rc out=$out"
+fi
+
 # Trace collector tests.
 if bash "$root/tests/trace-test.sh" >/dev/null 2>&1; then
   pass "trace-test.sh passes"
 else
   bad "trace-test.sh failed (run it directly for details)"
+fi
+
+# Digest tests.
+if bash "$root/tests/index-test.sh" >/dev/null 2>&1; then
+  pass "index-test.sh passes"
+else
+  bad "index-test.sh failed (run it directly for details)"
 fi
 
 # Log writer tests.

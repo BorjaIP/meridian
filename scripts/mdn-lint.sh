@@ -4,7 +4,9 @@
 # Usage: mdn-lint.sh <project.md> [<project.md> ...]
 #
 # Prints one `file:line: message` diagnostic per problem and exits non-zero
-# if any file has a problem. Silent and exit 0 when every file is valid.
+# if any file has a problem. Also prints `file:line: warning: message` for
+# soft issues (description over 600 chars); warnings never change the exit
+# status. Silent and exit 0 when every file is valid and clean.
 # Requires only bash and awk.
 
 set -u
@@ -23,6 +25,8 @@ for f in "$@"; do
   fi
   awk -v file="$f" '
     function err(line, msg) { printf "%s:%d: %s\n", file, line, msg; bad = 1 }
+    # Warnings never change the exit status.
+    function warn(line, msg) { printf "%s:%d: warning: %s\n", file, line, msg }
 
     # Return 1 when value v is one of the |-separated words in list.
     function oneof(v, list,    n, a, i) {
@@ -35,6 +39,10 @@ for f in "$@"; do
     function finish_task(    box_done) {
       if (!in_task) return
       in_task = 0
+
+      if (d_len > 600)
+        warn(d_line, "description is " d_len " chars (over 600); move the detail to the odd/ task document and keep a short summary")
+      d_len = 0; d_line = 0; in_desc = 0
 
       # Required fields and allowed values.
       if (!("owner" in f_))    err(t_line, "missing field \"owner\"")
@@ -118,6 +126,15 @@ for f in "$@"; do
     }
 
     # Indented lines belong to the current task; any other text ends it.
+    # Description length (continuation lines count) for the long-description warning.
+    in_task && /^[ \t]+\*\*Description:\*\*/ {
+      d = $0; sub(/^[ \t]+\*\*Description:\*\*[ ]*/, "", d)
+      d_line = NR; d_len = length(d); in_desc = 1; next
+    }
+    in_task && /^[ \t]+\*\*/ { in_desc = 0 }
+    in_task && in_desc && /^[ \t]+[^ \t]/ {
+      d = $0; sub(/^[ \t]+/, "", d); d_len += 1 + length(d); next
+    }
     in_task && /^[ \t]+\*\*Run:\*\*/   { has_run = 1;   next }
     in_task && /^[ \t]+\*\*Trace:\*\*/ { has_trace = 1; next }
     in_task && /^[ \t]/ { next }
