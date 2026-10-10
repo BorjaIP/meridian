@@ -4,25 +4,31 @@ model: low
 description: >
   Meridian project initializer. On first run, detects missing config and asks the user for
   their Obsidian vault path, writing it to ~/.config/meridian/config.md. Then creates a
-  new Meridian project (one project.md file) inside the vault's `meridian/` directory.
-  Use when the user says "create a new Meridian project", "init a project", "start a new
+  new Meridian project (one project.md file) inside the vault's `meridian/` directory and
+  fills its one-line description from the repository context. Also runs in auto mode when
+  another Meridian command finds the project not initialized. Use when the user says "create a new Meridian project", "init a project", "start a new
   project in Meridian", or runs `/mdn-init name:<slug>`.
 ---
 
 ## Invocation
 
 ```
-/mdn-init name:<slug> [title:"Human readable title"] [description:"One-line summary"] [repo:<absolute path>]
+/mdn-init [name:<slug>] [title:"Human readable title"] [description:"One-line summary"] [repo:<absolute path>]
 ```
 
 | Argument | Required | Description |
 |---|---|---|
-| `name` | yes | Project slug: kebab-case, used as the folder name and the `project:` field. |
+| `name` | interactive: yes | Project slug: kebab-case, used as the folder name and the `project:` field. In auto mode it defaults to the kebab-case basename of the git toplevel. |
 | `title` | no | Human-readable title. Defaults to the title-cased slug. |
-| `description` | no | One-line summary shown under the heading. |
+| `description` | no | One-line summary. When given it is used as is; otherwise it is derived (see "Description derivation"). |
 | `repo` | no | Absolute path of the code repository. Defaults to the current git toplevel when there is one; otherwise left empty. |
 
-Format reference: `docs/protocol.md`. Primitive used: WRITE.
+Format reference: `docs/protocol.md`. Primitives used: READ, GREP, WRITE, EDIT.
+
+## Modes
+
+- **Interactive** (the user runs `/mdn-init`): may ask questions, as written in the steps.
+- **Auto mode**: see "Auto mode" below; used by the init guard of the other commands.
 
 ## Steps
 
@@ -50,11 +56,17 @@ delivery:
 
 ### 2. Validate arguments
 
-Extract `name`, `title`, `description`, `repo`. `name` must match `^[a-z0-9]+(-[a-z0-9]+)*$`; if missing or invalid, ask once. Generate `title` from the slug when absent (`my-app` -> `My App`).
+Extract `name`, `title`, `description`, `repo`. `name` must match `^[a-z0-9]+(-[a-z0-9]+)*$`; if missing or invalid, ask once (interactive) or derive it (auto mode). Generate `title` from the slug when absent (`my-app` -> `My App`).
 
-### 3. Check for conflicts
+### 3. Check for an existing project
 
-If `<vault>/meridian/<slug>/` already exists, warn and ask whether to abort or continue; never overwrite an existing file.
+If `<vault>/meridian/<slug>/project.md` already exists, this is a re-run:
+
+- If its description line (the first `> ` line under the heading) still starts with `> TODO:`, go to "Description derivation" and replace that one line only.
+- Otherwise say `already initialized: <path>` and stop.
+- Never change anything else on a re-run: no other line, no other file, no tasks, no frontmatter.
+
+If the folder exists without a `project.md`, warn and ask whether to continue (interactive) or stop and report (auto mode). Never overwrite an existing file.
 
 ### 4. Create the project note
 
@@ -62,7 +74,7 @@ Create `<vault>/meridian/` if needed, then WRITE `<vault>/meridian/<slug>/projec
 
 - `title`: the title; `project`: the slug; `status: active`.
 - `repo`: the path when known, otherwise remove the line.
-- The description line under the heading, when given.
+- The description line under the heading: the `description` argument if given, otherwise the line from "Description derivation" (formatted `> <line>`), otherwise the `> TODO: add a one-line description of this project.` placeholder.
 
 No other file or folder is created. `TASK_HISTORY.md` appears later, when `/mdn-archive` first runs.
 
@@ -72,8 +84,41 @@ Run `scripts/mdn-lint.sh <project.md>` (resolve it from the Meridian repository;
 
 ```
 Project initialised: <vault>/meridian/<slug>/project.md
+Description: <the line, or "placeholder kept: <reason>">
+Evidence: <source file or command, or "none">
 
 Next:
   /mdn-add "<description>" project:<slug>     queue a task for later
   /mdn-run "<description>" project:<slug>     record and execute a task now
 ```
+
+## Description derivation
+
+Runs when creating a project without a `description` argument, and on a re-run whose description is still the `> TODO:` placeholder.
+
+**Repo:** the `repo:` frontmatter value or argument; otherwise the git toplevel of the current directory (`git rev-parse --show-toplevel`). With no repo, keep the placeholder and tell the user in one line: `Description left as placeholder: no repository found.`
+
+**Evidence, in this order; stop at the first source that yields a usable sentence:**
+
+1. `README.md` (or `README*`): the first meaningful paragraph (skip badges, images, HTML, link-only lines, tables of contents, headings); if there is only a title, use the title plus its tagline (a blockquote or italic line right after it).
+2. Package manifests: `package.json` `description`; `pyproject.toml` `[project] description` or `setup.cfg` `description`; `Cargo.toml` `description`; `go.mod` module path combined with the README title.
+3. The head of `CLAUDE.md` or `AGENTS.md` (first meaningful paragraph).
+4. Last resort: the repository name from `git remote get-url origin`, as "Repository <name>." and nothing more.
+
+**Writing the line:**
+
+- One plain sentence in English, at most 140 characters, no markdown (strip emphasis, links, backticks, HTML). Condense or cut at a word boundary; translate non-English evidence faithfully.
+- Use only what the evidence says: never invent. Do not guess the purpose from file names, dependencies or the project name.
+- If no source yields a usable sentence, keep the `> TODO:` placeholder and tell the user exactly why in one line, for example `Description left as placeholder: README.md has no paragraph and no manifest has a description.`
+- Interactive mode only: when evidence is insufficient, ask the user once for the description. Never ask in auto mode.
+- The final report shows the chosen line and its evidence source (file, or `git remote`).
+
+## Auto mode
+
+Used by the init guard of the other commands (add, run, done, daily, status, archive) when Meridian is not initialized for the current project. Same steps as above, with these differences:
+
+- No questions, except the vault path when `~/.config/meridian/config.md` is missing.
+- The project slug is the `project:` argument when the calling command received one; otherwise the kebab-case basename of the git toplevel (lower-case, non-alphanumeric runs to `-`). With no repo and no `project:` argument, stop and say so.
+- `title` defaults from the slug; `repo` is the git toplevel.
+- A description that cannot be derived stays a placeholder; do not ask.
+- Finish with a single line, then return control to the calling command: `Initialized <slug> (<vault>/meridian/<slug>/project.md); description: <line or placeholder>.`
