@@ -16,6 +16,8 @@ Delivery: single PR on the feature branch, user decides push/PR; size:exception 
 - S6: Meridian never toggles RDD (`gentle-ai review mode`), and never runs gentle-ai as a subagent.
 - S7: Commands kept: init, add, run, done, daily, status, archive. Retired: plan, approve, reviewer, checkpoint, generator, loop (decision in T4.4), old load/sync.
 - S8: Vault project migration is dry-run first, applied only after user review, keeping legacy files under `archive-legacy/`.
+- S9: `/mdn-init` fills the one-line project description itself by reading the repo and its context (README, manifests, CLAUDE.md/AGENTS.md); it never invents: with insufficient evidence it keeps the placeholder and says so. Re-running init on an existing project only fills a placeholder description, nothing else.
+- S10: Init guard: every command other than init first checks (config with vault, project resolved, project.md exists). If something is missing it states that Meridian must be initialized and runs the init steps inline in auto mode (no questions except the vault path when the config is missing), then continues the original command, as other frameworks do.
 
 ## Tasks
 
@@ -27,6 +29,8 @@ Delivery: single PR on the feature branch, user decides push/PR; size:exception 
 - [x] T3.2 (S7) Remove retired skills (plan, approve, reviewer, checkpoint, generator, loop, load, sync) from repo | route: delegated writer | commit 2885490 | evidence: ls skills = add archive daily done init run status; grep of retired terms = 0 hits (re-run by parent); skills 1940 -> 480 lines
 - [x] T4.1 (S8) Dry-run converter for the vault project onto a copy; show diff to user | route: delegated writer | commit 5f4769c | evidence: RED 16 fails -> GREEN migrate-test 25 checks + run.sh all pass (re-run by parent); real dry run exit 0, 7 tasks, lint OK on output; vault git status clean after (re-checked by parent); --apply NOT run on real vault
 - [x] T4.2 (S8) Apply migration to the vault after user review; legacy kept in archive-legacy/ | route: inline | user OK given 2026-10-10 | evidence: --apply exit 0, 7 tasks, 13 files to archive-legacy/, lint OK on the real vault project.md; pre-apply backup ~/.claude/meridian-backups/vault-meridian-project-pre-apply-*.tar.gz. NOTE: vault meridian/ is git-ignored (.gitignore:25), so the tarballs are the only undo, not git
+- [ ] T4.6 (S9) mdn-init derives and writes the one-line description from repo context; idempotent re-run fills a placeholder only | route: delegated writer
+- [ ] T4.7 (S10) Init guard block in add/run/done/daily/status/archive + tests/skills-test.sh asserting each skill carries the guard and init has the derivation steps | route: delegated writer
 - [ ] T4.5 (S8) Make mdn-migrate.sh warn/refuse --apply when the project dir is git-ignored (its dirty-tree guard passes vacuously then) | route: delegated writer
 - [ ] T4.3 (S1) Dogfood: run the next real Meridian task through /mdn-run end to end | route: inline
 - [ ] T4.4 (S7) Decide fate of mdn-loop from T2/T4.3 evidence | route: inline
@@ -43,4 +47,5 @@ Delivery: single PR on the feature branch, user decides push/PR; size:exception 
 - L6: T3.1/T3.2 done. Vault project (old format) has 3 duplicated task representations: Plans table, Tasks summary table and 7 inline #task blocks (4 backlog, 1 planning, 2 review owner::me). Plus plans/ (10 notes), tasks/integrate-memory-kb.md, tasks/history.md (196 lines). Some open tasks look superseded by gentle-ai+engram (memory KB, memory partitioning, Plan.md simplification): flag to user at migration review, do not auto-drop.
 - L7: T4.1 done. Dry-run output kept at a temp dir (see session); awaiting user review before T4.2 (--apply). Known quirks: 'Verify:' tasks lose the verify- prefix in their slug; description stays a TODO placeholder; CRLF input untested.
 - L8: T4.2 applied with user approval. Correction recorded: I told the user the change was revertable via git, but the vault's meridian/ folder is git-ignored; undo = restore the tarball. Follow-up T4.5 added.
-- Progress: 8/13 tasks. Next step: user looks at the result in Obsidian; then T4.5, T4.3 (dogfood), T5.1 (install.sh + docs).
+- L9 (user): "el one line description deberia de rellenarlo el mdn-init al crear el proyecto y leer el repo y el contexto, ademas de que cuando ejecutas cualquier otro comando indique que hay que ejecutar el init antes y lo ejecutes como el resto de frameworks hace" -> S9, S10, T4.6, T4.7.
+- Progress: 8/15 tasks. Next step: T4.5 + T4.6 + T4.7 via one delegated writer; then fill the vault project description using the new init logic; then T4.3, T5.1.
