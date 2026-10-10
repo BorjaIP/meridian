@@ -62,4 +62,8 @@ Read-only. A table of counts by status and owner per active project plus totals.
 /mdn-archive [project:<slug>]
 ```
 
-Appends every `done` task block verbatim to `TASK_HISTORY.md` (created if needed) under a timestamped heading, and removes it from `project.md` only after reading the history back. Nothing is deleted.
+For every `done` task runs `mdn-log.sh archive`, which moves the block verbatim into the project's `logs/YYYY-MM.md` under a timestamped heading and removes it from `project.md` in one step. Problems (task missing, not done, already archived) are reported and that task is skipped. Nothing is deleted.
+
+## Logs, digest and dashboard
+
+`/mdn-add`, `/mdn-run`, `/mdn-done` and `/mdn-init` append one-line lifecycle events through `mdn-log.sh`; a missing or failing script only prints a warning. `/mdn-daily` and `/mdn-status` build their report from `mdn-index.sh` output instead of reading whole notes and never read `logs/`; `/mdn-status` suggests `/mdn-archive` past about 20 done tasks. `/mdn-init` creates `<vault>/meridian/dashboard.md` (Dataview queries) from `templates/Dashboard.md` only if it does not exist.

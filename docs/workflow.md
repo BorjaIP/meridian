@@ -48,8 +48,8 @@ If the session is interrupted, the task stays `in-progress`; `/mdn-run task:<slu
 ## 5. Housekeeping
 
 ```
-/mdn-status      # counts by status and owner; flags runs possibly interrupted
-/mdn-archive     # move done tasks to TASK_HISTORY.md (verbatim, never deleted)
+/mdn-status      # counts by status and owner; flags interrupted runs; hints when to archive
+/mdn-archive     # move done tasks to the monthly log logs/YYYY-MM.md (verbatim, never deleted)
 ```
 
 ## Requirements recap

@@ -25,7 +25,8 @@ delivery:
 ```
 <vault>/meridian/<slug>/
   project.md          the project note, with all tasks
-  TASK_HISTORY.md     created by /mdn-archive when first needed
+  logs/YYYY-MM.md     append-only events and archived tasks, created on first write
+<vault>/meridian/dashboard.md   Dataview dashboard, created once by /mdn-init, never overwritten
 ```
 
 Project frontmatter: `title`, `project` (slug), `status` (`active|paused|done|archived`), optional `repo` (absolute path of the code repository, used to match the current directory to a project), `tags`. Only `active` projects appear in `/mdn-daily` and `/mdn-status`. The task line, blocks and rules are specified in [protocol.md](protocol.md); validate with `scripts/mdn-lint.sh <project.md>`.
@@ -38,8 +39,8 @@ Project frontmatter: `title`, `project` (slug), `status` (`active|paused|done|ar
 |---|---|
 | `~/.claude/skills/mdn-*/SKILL.md` | The seven skills (Claude Code). |
 | `~/.codex/skills/mdn-*/SKILL.md` | The same skills, when installed with `--tool codex` or `all`. |
-| `~/.config/meridian/scripts/` | `mdn-lint.sh`, `mdn-trace.sh`, `mdn-migrate.sh` (executable). |
-| `~/.config/meridian/templates/Project.md` | Template used by `/mdn-init`. |
+| `~/.config/meridian/scripts/` | `mdn-lint.sh`, `mdn-trace.sh`, `mdn-migrate.sh`, `mdn-log.sh`, `mdn-index.sh` (executable). |
+| `~/.config/meridian/templates/Project.md`, `Dashboard.md` | Templates used by `/mdn-init`. Stale `Plan.md` and `Task.md` are moved to `retired-skills-<timestamp>/templates/` by the installer. |
 | `~/.config/meridian/retired-skills-<date>/` | Only when needed: skills from older versions and backups of overwritten skills. |
 
 Skills look for helper scripts in `~/.config/meridian/scripts/` first, then in the `scripts/` folder of the Meridian repository, and skip the check (saying so) if neither exists.

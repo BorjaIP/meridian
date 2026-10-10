@@ -48,7 +48,7 @@ Options: `--tool claude|codex|all`, `--source <dir>`, `--dry-run`. The installer
 | What | Where |
 |---|---|
 | Skills | `~/.claude/skills/mdn-*/` (and `~/.codex/skills/` for Codex) |
-| Helper scripts (`mdn-lint.sh`, `mdn-trace.sh`, `mdn-migrate.sh`) | `~/.config/meridian/scripts/` |
+| Helper scripts (`mdn-lint.sh`, `mdn-trace.sh`, `mdn-migrate.sh`, `mdn-log.sh`, `mdn-index.sh`) | `~/.config/meridian/scripts/` |
 | Templates | `~/.config/meridian/templates/` |
 
 Skills from older Meridian versions that no longer exist are moved (not deleted) to `~/.config/meridian/retired-skills-<date>/`, together with a backup of any installed skill it overwrites.
@@ -74,7 +74,7 @@ Every command other than `/mdn-init` checks that Meridian is initialized and, if
 | `/mdn-done` | Accept a task in `review` (or send it back with a reason). |
 | `/mdn-daily` | Everything that needs your attention today. |
 | `/mdn-status` | Counts by status and owner across projects. |
-| `/mdn-archive` | Move done tasks to `TASK_HISTORY.md`. |
+| `/mdn-archive` | Move done tasks to the monthly log `logs/YYYY-MM.md`. |
 
 → [Skills reference](docs/skills.md)
 
