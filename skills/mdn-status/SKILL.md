@@ -2,10 +2,10 @@
 name: mdn-status
 model: low
 description: >
-  Meridian dashboard skill. Scans all active Meridian projects in the vault and prints
-  a summary table with task counts by status and owner. Use when the user says "show
-  project status", "what's the state of my projects", "meridian dashboard", or runs
-  `/mdn-status`.
+  Meridian dashboard skill. Read-only. Prints task counts by status and owner for every
+  active project plus a total, and flags in-progress tasks whose run started more than 24
+  hours ago as possibly stale. Use when the user says "show project status", "what's the
+  state of my projects", "meridian dashboard", or runs `/mdn-status`.
 ---
 
 ## Invocation
@@ -16,51 +16,33 @@ description: >
 
 | Argument | Required | Description |
 |---|---|---|
-| `project` | no | Limit output to a single slug. Omit for all active projects. |
+| `project` | no | Limit the output to one slug. Omit for all active projects. |
 
-## Execution steps
+Format reference: `docs/protocol.md`. Primitives used: READ, GREP. This skill never writes anything.
 
-### Step 0 — Resolve config
-Read `${XDG_CONFIG_HOME:-~/.config}/meridian/config.md`. Extract `vault`, `date-format`. Run Date generation snippet → `<NOW>`. If missing: tell user to run `/mdn-init`.
+## Steps
 
-### Step 1 — Discover project notes
-Glob `<vault>/meridian/*/PROJECT.md`. Filter to `status: active` in frontmatter. If `project:` given, filter to that slug. If none found: report and stop.
-
-### Step 2 — Count tasks per project
-For each project note, scan `## Tasks`. Parse `owner::` and `status::` from all task lines (`- [ ]` and `- [x]`). Build count map:
-
-```
-{ backlog/planning/review/approved/in-progress/done/blocked } × { agent/me }
-```
-
-Collect titles of `status::review owner::me` tasks separately.
-
-### Step 3 — Print dashboard
-
-One block per project:
+1. READ `${XDG_CONFIG_HOME:-$HOME/.config}/meridian/config.md`; take `vault:`. If missing, tell the user to run `/mdn-init`.
+2. READ each `<vault>/meridian/*/project.md`; keep those with `status: active` (and the given slug, if any). If none, report that and stop.
+3. For each project GREP the task lines (`/^- \[.\] #task/`) and count by `status::` (backlog, in-progress, review, done, blocked) and `owner::` (agent, me).
+4. Staleness: for each `status::in-progress` task read `started <YYYY-MM-DD HH:MM>` from its `**Run:**` block and compare it with the current time (`date "+%Y-%m-%d %H:%M"`). If it is more than 24 hours older, or the task has no Run block, mark it `possibly stale` (a stale mark means the session may have been interrupted; resume with `/mdn-run task:<slug>`).
+5. Print one block per project and a total:
 
 ```
-## <title> (`<slug>`)
+## <title> (<slug>)
 
 | Status      | Agent | Me |
 |-------------|-------|----|
 | backlog     |   N   |  N |
-| ...         |       |    |
+| in-progress |   N   |  N |
+| review      |   N   |  N |
+| blocked     |   N   |  N |
+| done        |   N   |  N |
 
-▸  Needs your attention:
-  - <task title>  [status::review owner::me]
+possibly stale: <slug> (started <YYYY-MM-DD HH:MM>)
+
+-----------------------------------------
+Total: <P> active project(s) · <B> backlog · <I> in-progress · <R> review · <K> blocked · <D> done
 ```
 
-Omit zero rows. Omit "Needs your attention" if empty. If `project:` given, also print the full `## Plans` table.
-
-### Step 4 — Summary line
-
-```
-─────────────────────────────────────────
-<N> active project(s) · <N> pending your review · <N> agent tasks approved and ready
-```
-
-## Meridian protocol reference
-
-- Project notes: `<vault>/meridian/*/PROJECT.md` with `status: active`
-- Task inline fields: `key::value`
+Omit zero rows and omit the stale line when there is nothing to flag.

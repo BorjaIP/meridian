@@ -2,34 +2,32 @@
 name: mdn-archive
 model: low
 description: >
-  Meridian archive skill. Scans all status::done tasks in a project, appends them to
-  TASK_HISTORY.md (creating the file if needed), and removes them from PROJECT.md.
-  Tasks are never deleted — archived verbatim with a timestamped section header.
-  Use when the user says "archive tasks", "clean up done tasks", "move done to history",
-  or runs `/mdn-archive`.
+  Meridian archive skill. Moves the done tasks of a project, with their full Run and
+  Trace blocks, from project.md to TASK_HISTORY.md in the same project folder under a
+  dated section. Nothing is deleted. Use when the user says "archive tasks", "clean up
+  done tasks", "move done to history", or runs `/mdn-archive`.
 ---
 
 ## Invocation
 
 ```
-/mdn-archive project:<slug>
+/mdn-archive [project:<slug>]
 ```
 
-## Execution steps
+`project` defaults to the project whose `repo:` matches the current git toplevel; otherwise ask once. Format reference: `docs/protocol.md`. Primitives used: READ, GREP, EDIT, INSERT, WRITE.
 
-### Step 0 — Resolve config
-Read `${XDG_CONFIG_HOME:-~/.config}/meridian/config.md`. Extract `vault`. Run Date generation snippet → `<NOW>`. If missing: tell user to run `/mdn-init`.
+## Rules
 
-### Step 1 — Find project note
-Read `<vault>/meridian/<slug>/PROJECT.md`. Verify `project: <slug>` in frontmatter. If missing: suggest `/mdn-init name:<slug>`.
+- Move, never delete: every archived block is written to the history file first, and removed from `project.md` only after the write is read back.
+- Blocks are archived verbatim, including `**Run:**`, `**Trace:**` and `**Note:**`.
+- Only `- [x]` tasks with `status::done` are moved. Review, blocked and open tasks are never touched.
 
-### Step 2 — Collect done task blocks
-Scan `## Tasks` for blocks matching `- [x]` + `status::done`. A block = the `- [x]` line plus all continuation lines (2+ leading spaces). Collect full text into `done_blocks`. Also extract each block's `**Title:**` (fallback: first 60 chars).
+## Steps
 
-If none found: report "No done tasks to archive in `<slug>`." and stop.
-
-### Step 3 — Ensure history file
-Path: `<vault>/meridian/<slug>/TASK_HISTORY.md` (at the project root, not inside `tasks/`). If missing, create with:
+1. READ `${XDG_CONFIG_HOME:-$HOME/.config}/meridian/config.md`; take `vault:`. If missing, tell the user to run `/mdn-init`.
+2. Resolve the project and READ `<vault>/meridian/<project>/project.md`; verify `project:` in the frontmatter.
+3. Collect the done blocks: each `- [x] #task ... status::done ...` line plus all following lines indented by two or more spaces. Keep the slug and `**Title:**` of each. If there are none, report `No done tasks to archive in <slug>.` and stop.
+4. Ensure `<vault>/meridian/<project>/TASK_HISTORY.md` exists. If not, WRITE it:
 
 ```markdown
 ---
@@ -39,41 +37,26 @@ project: <slug>
 
 # Task History
 
-> Archived tasks for project `<slug>`. Tasks are appended in reverse-chronological order.
-> Never edit this file manually — use `/mdn-archive` to add entries.
-
+> Archived tasks for project `<slug>`. Tasks are moved here verbatim by `/mdn-archive`.
 ```
 
-### Step 4 — Append to history file
-Append at end of file:
+5. Append at the end of the history file, with the date from `date "+%Y-%m-%d %H:%M"`:
 
 ```markdown
-## Archived on <NOW>
 
-<task_block_1>
-<task_block_2>
+## Archived on <YYYY-MM-DD HH:MM>
+
+<block 1>
+
+<block 2>
 ```
 
-Each block verbatim, blank line between blocks.
-
-### Step 5 — Remove done blocks from PROJECT.md
-For each block in `done_blocks`: remove the `- [x]` line, its continuation lines, and the immediately preceding blank line. Do not touch other tasks.
-
-### Step 6 — Update Tasks table
-Remove rows from `## Tasks` table where Task column matches an archived title.
-
-### Step 7 — Confirm to user
+6. READ the history file back and confirm that every slug is present. Only then remove each block from `project.md` (the task line, its indented lines, and one adjacent blank line). Do not touch other tasks.
+7. Run `scripts/mdn-lint.sh <project.md>` (resolve it from the Meridian repository; if not found, say the check was skipped). A slug may now be reused by a new task: the history file is not linted.
+8. Confirm:
 
 ```
-[ok] Archived <N> task(s) from <slug>:
-  - <title>
-  ...
-
-History file: <vault>/meridian/<slug>/TASK_HISTORY.md
-PROJECT.md: <N> task block(s) removed, Tasks table updated.
+Archived <N> task(s) from <slug>:
+  - <slug>: <title>
+History: <vault>/meridian/<slug>/TASK_HISTORY.md
 ```
-
-## Meridian protocol reference
-
-- History file: `<vault>/meridian/<slug>/TASK_HISTORY.md`
-- State machine: `backlog → planning → review → approved → in-progress → done`
