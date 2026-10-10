@@ -65,4 +65,11 @@ else
   bad "migrate-test.sh failed (run it directly for details)"
 fi
 
+# Skill structure tests (structure only, not model behavior).
+if bash "$root/tests/skills-test.sh" >/dev/null 2>&1; then
+  pass "skills-test.sh passes"
+else
+  bad "skills-test.sh failed (run it directly for details)"
+fi
+
 if [ "$fail" -eq 0 ]; then echo "all tests passed"; else echo "$fail test(s) failed"; exit 1; fi

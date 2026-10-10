@@ -24,9 +24,20 @@ The format and the state machine are defined in `docs/protocol.md`. Primitives u
 - Never modify `**Run:**` or `**Trace:**`, except that a reopen keeps them untouched.
 - All text written to the vault is in English.
 
+## Init guard
+
+Before the steps below, check that Meridian is initialized:
+
+1. The config file `${XDG_CONFIG_HOME:-$HOME/.config}/meridian/config.md` exists and has a `vault:` value.
+2. The project resolves (the `project:` argument; otherwise the project whose `repo:` frontmatter matches the current git toplevel; otherwise the kebab-case basename of the git toplevel) and `<vault>/meridian/<project>/project.md` exists.
+
+If anything is missing, say in one line "Meridian is not initialized for this project; running /mdn-init first", run the `/mdn-init` steps inline in auto mode (no questions except the vault path when the config is missing), then continue the original command without making the user retype it.
+
+Cross-project commands (`/mdn-daily`, `/mdn-status`) only require the config and at least one project. If there is none, apply this guard to the current repository; if the current directory is not a repository, say there is nothing to show and stop.
+
 ## Steps
 
-1. READ `${XDG_CONFIG_HOME:-$HOME/.config}/meridian/config.md`; take `vault:`. If missing, tell the user to run `/mdn-init`.
+1. READ `${XDG_CONFIG_HOME:-$HOME/.config}/meridian/config.md`; take `vault:`. (The init guard guarantees it exists.)
 2. Resolve the project: the `project:` argument; otherwise the project whose `repo:` matches the current git toplevel; otherwise ask once. READ `<vault>/meridian/<project>/project.md` and verify `project:` in the frontmatter.
 3. GREP `slug::<slug>` among the task lines. If not found, report it and stop. Read the task's status, owner and blocks.
 

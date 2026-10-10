@@ -32,10 +32,21 @@ The task format is defined in `docs/protocol.md`. Primitives used: READ, GREP, I
 - All text written to the vault is in English, regardless of the language of the input.
 - Ask at most one question, and only when the project cannot be resolved.
 
+## Init guard
+
+Before the steps below, check that Meridian is initialized:
+
+1. The config file `${XDG_CONFIG_HOME:-$HOME/.config}/meridian/config.md` exists and has a `vault:` value.
+2. The project resolves (the `project:` argument; otherwise the project whose `repo:` frontmatter matches the current git toplevel; otherwise the kebab-case basename of the git toplevel) and `<vault>/meridian/<project>/project.md` exists.
+
+If anything is missing, say in one line "Meridian is not initialized for this project; running /mdn-init first", run the `/mdn-init` steps inline in auto mode (no questions except the vault path when the config is missing), then continue the original command without making the user retype it.
+
+Cross-project commands (`/mdn-daily`, `/mdn-status`) only require the config and at least one project. If there is none, apply this guard to the current repository; if the current directory is not a repository, say there is nothing to show and stop.
+
 ## Steps
 
-1. READ `${XDG_CONFIG_HOME:-$HOME/.config}/meridian/config.md`; take `vault:`. If missing, tell the user to run `/mdn-init`.
-2. Resolve the project (see the table above). READ `<vault>/meridian/<project>/project.md` and verify `project:` in the frontmatter. If the file is missing, suggest `/mdn-init name:<slug>`.
+1. READ `${XDG_CONFIG_HOME:-$HOME/.config}/meridian/config.md`; take `vault:`. (The init guard guarantees it exists.)
+2. Resolve the project (see the table above). READ `<vault>/meridian/<project>/project.md` and verify `project:` in the frontmatter. (The init guard guarantees the file exists.)
 3. Build the fields:
    - **Title:** imperative phrase, at most 80 characters.
    - **Description:** one sentence (at most 120 characters) stating what and why.
