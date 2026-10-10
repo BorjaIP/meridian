@@ -4,7 +4,7 @@
 
 Meridian is the human traceability ledger. Execution is owned by the ODD workflow of the coding agent (task documents live in the repository under `odd/`), and agent memory is owned by Engram. A Meridian project file records **what was asked, when it ran, and where the evidence is**.
 
-Validate any project file with `scripts/mdn-lint.sh <project.md>`.
+Validate any project file with `scripts/mdn-lint.sh <project.md>`. Read a digest with `scripts/mdn-index.sh <project.md>`; write logs with `scripts/mdn-log.sh` (sections 8 and 9).
 
 ---
 
@@ -185,7 +185,7 @@ Earlier versions of Meridian used a larger model. Tools that read old vaults nee
 | Verification checkpoint tasks (`type::review` created by the agent) | Human check after execution. | Removed. The task itself moves to `review`. |
 | `REVIEW.md`, `GOAL.md` | Reviewer reports and loop goal. | Removed. |
 | `PROGRESS.md`, `checkpoints/` | Session memory. | Removed. Engram owns agent memory. |
-| `TASK_HISTORY.md` | Archived done tasks. | Unchanged in purpose: archived tasks are moved verbatim, never deleted. |
+| `TASK_HISTORY.md` | Archived done tasks. | Replaced by `logs/YYYY-MM.md` (section 8). Archived tasks are still moved verbatim, never deleted. |
 
 Conversion rules for a legacy project:
 
@@ -194,3 +194,45 @@ Conversion rules for a legacy project:
 3. Map states as above. Existing `review` tasks with an `**Artifact:**` stay `review` and gain a `**Trace:**` link when one can be derived.
 4. Move legacy files to `archive-legacy/` instead of deleting them.
 5. Run `scripts/mdn-lint.sh` on the result.
+
+---
+
+## 8. Logs
+
+Cold storage lives next to the project note: `<vault>/meridian/<slug>/logs/YYYY-MM.md`, one file per month, **append-only**. It replaces `TASK_HISTORY.md`. `project.md` stays the hot working set; logs hold what is closed or old.
+
+Each month file starts with `# Log YYYY-MM` and holds two kinds of entries, every one timestamped `YYYY-MM-DD HH:MM` (local time, taken from the clock by the script):
+
+- **Lifecycle event**, one line: `- <timestamp> · <event> · <slug>[ · <text>]`. `slug` is `-` for project-level events. Events: `init`, `created`, `run-started`, `run-finished`, `blocked`, `review`, `done`, `reopened`, `archived`, `migrated`.
+- **Archived task**, a section: `## <timestamp> · archived · <slug>` followed by the complete task block (task line plus Title, Description, Run, Trace, Note) copied verbatim, indentation preserved.
+
+Entries are only written through `scripts/mdn-log.sh`, never hand-formatted:
+
+```
+mdn-log.sh event   <project-dir> <event> <slug> [text...]
+mdn-log.sh archive <project-dir> <project.md> <slug>
+```
+
+`archive` moves the block out of `project.md` (and one trailing blank line) into the month file. Both writes go through temp files and are moved into place only when the task is found, so a failure changes nothing. Exit codes: `2` bad arguments or event, `3` slug missing or task not done, `4` that slug is already archived in that month. `MDN_NOW="YYYY-MM-DD HH:MM"` overrides the clock for tests.
+
+Daily, status and the digest never read `logs/`; they are for history and audit.
+
+---
+
+## 9. Digest and warnings
+
+`scripts/mdn-index.sh <project.md> [--now "YYYY-MM-DD HH:MM"] [--stale-hours 24] [--done-hint 20]` computes what dashboards need, so clients read its output instead of the whole note. It reads only the given file. Output is `key=value` lines, repeated keys carry one item per line with tab-separated fields:
+
+| Line | Meaning |
+|---|---|
+| `project=<slug>`, `total=<n>` | Project slug and task count. |
+| `counts <status>=<n>` | One line per status, zeros included. |
+| `owner_counts <owner>=<n>` | `me` and `agent`. |
+| `review=<slug>`, owner, priority, title, `trace=<link text>` | One per task in `review`; `trace=` is empty without a Trace block. |
+| `blocked=<slug>`, owner, priority, title, note | One per blocked task; note is the `**Note:**` text, if any. |
+| `mine=<slug>`, status, priority, title | `owner::me` tasks in `backlog` or `in-progress`. |
+| `stale=<slug>`, `<started>` or `no-run` | `owner::agent` tasks in `in-progress` whose `Run` started more than `--stale-hours` ago (strictly), or that have no usable `Run`. |
+| `done_count=<n>` | Number of done tasks. |
+| `archive_hint=yes` | Printed only when `done_count` is greater than `--done-hint`; suggest archiving. |
+
+`mdn-lint.sh` also prints **warnings**, as `file:line: warning: ...`, that never change the exit status. Today there is one: a task description over 600 characters (continuation lines included). Keep the description short and move the detail to the `odd/` task document.
