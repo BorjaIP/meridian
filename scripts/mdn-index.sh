@@ -9,7 +9,7 @@
 #   total=<n>
 #   counts <status>=<n>          one line per status
 #   owner_counts <owner>=<n>     me, agent
-#   review=<slug> TAB <owner> TAB <priority> TAB <title> TAB trace=<link text>
+#   review=<slug> TAB <owner> TAB <priority> TAB <title> TAB trace=<link text, else first Trace segment>
 #   blocked=<slug> TAB <owner> TAB <priority> TAB <title> TAB <note>
 #   mine=<slug> TAB <status> TAB <priority> TAB <title>     owner::me, backlog|in-progress
 #   stale=<slug> TAB <started | no-run>   in-progress agent tasks older than the threshold
@@ -106,6 +106,12 @@ awk -v now="$now" -v stale="$stale" -v hint="$hint" '
   in_task && /^[ \t]+\*\*Trace:\*\*/ {
     v = $0
     if (match(v, /\[[^]]*\]\(/)) trace = substr(v, RSTART + 1, RLENGTH - 3)
+    else {
+      # No Markdown link (small task): fall back to the first " · " segment.
+      sub(/^[ \t]+\*\*Trace:\*\*[ ]*/, "", v)
+      n = index(v, " \302\267 ")
+      trace = (n > 0) ? substr(v, 1, n - 1) : v
+    }
     next
   }
   in_task && /^[ \t]/ { next }

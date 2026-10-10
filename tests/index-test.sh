@@ -136,4 +136,9 @@ printf -- '---\nproject: empty\nstatus: active\n---\n# E\n\n## Tasks\n' > "$tmp/
 o="$("$idx" "$tmp/empty.md" --now "$NOW")"
 has "$o" "total=0" && has "$o" "counts backlog=0" && has "$o" "done_count=0"; check "empty project: zero counts" "$?"
 
+# Trace without a Markdown link (small task, no odd document): first segment is used.
+printf -- '---\nproject: nolink\nstatus: active\n---\n# N\n\n## Tasks\n\n- [ ] #task owner::agent status::review priority::medium type::feature slug::small-one\n  **Title:** Small one\n  **Run:** started 2026-10-10 16:30 \xc2\xb7 ended 2026-10-10 16:31 \xc2\xb7 repo /r \xc2\xb7 branch main\n  **Trace:** commits 5776c7b \xc2\xb7 diffstat 3 files changed, 29 insertions(+)\n' > "$tmp/nolink.md"
+o="$("$idx" "$tmp/nolink.md" --now "$NOW")"
+has "$o" "review=small-one${T}agent${T}medium${T}Small one${T}trace=commits 5776c7b"; check "trace without link uses first segment" "$?"
+
 if [ "$fail" -eq 0 ]; then echo "all tests passed"; else echo "$fail test(s) failed"; exit 1; fi
