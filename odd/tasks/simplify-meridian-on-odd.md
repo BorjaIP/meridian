@@ -34,7 +34,7 @@ Delivery: single PR on the feature branch, user decides push/PR; size:exception 
 - [x] T4.5 (S8) Make mdn-migrate.sh warn/refuse --apply when the project dir is git-ignored (its dirty-tree guard passes vacuously then) | route: delegated writer | commit ab1e8df | evidence: migrate-test RED 3 fails -> GREEN; manual refusal check exit 1
 - [ ] T4.3 (S1) Dogfood: run the next real Meridian task through /mdn-run end to end | route: inline
 - [x] T4.4 (S7) Decide fate of mdn-loop | route: inline | decision: removed in T3.2 (commit 2885490); revisit only if dogfood shows a need for sequential backlog runs
-- [ ] T5.1 (S7) Rewrite README/docs for the ODD flow; fix placeholder URLs; update install.sh | route: delegated writer
+- [x] T5.1 (S7) Rewrite README/docs for the ODD flow; fix placeholder URLs; update install.sh | route: delegated writer | commits a4ff93a, 432d682 | evidence: install-test RED 16/21 fails -> GREEN 22 checks (temp HOME); tests/run.sh all pass; github.com/user grep = 0 (re-run by parent). Parent then ran install.sh for real (dry-run first): 7 skills in ~/.claude/skills, scripts+template in ~/.config/meridian, 8 retired skills moved to ~/.config/meridian/retired-skills-20261010-1629. NOT verified: real git clone path, codex loading, curl|bash one-liner. Gap: stale templates/Plan.md and Task.md remain in ~/.config/meridian/templates
 - [ ] T6.1 (deferred) /mdn-sync only if drift proves real
 
 ## Log
@@ -49,4 +49,5 @@ Delivery: single PR on the feature branch, user decides push/PR; size:exception 
 - L8: T4.2 applied with user approval. Correction recorded: I told the user the change was revertable via git, but the vault's meridian/ folder is git-ignored; undo = restore the tarball. Follow-up T4.5 added.
 - L9 (user): "el one line description deberia de rellenarlo el mdn-init al crear el proyecto y leer el repo y el contexto, ademas de que cuando ejecutas cualquier otro comando indique que hay que ejecutar el init antes y lo ejecutes como el resto de frameworks hace" -> S9, S10, T4.6, T4.7.
 - L10: T4.5-T4.7 done. Parent applied the init description rule to the real vault project.md (README tagline, 120 chars, lint OK; pre-edit copy in ~/.claude/meridian-backups/project.md.pre-description-*). Note: init was not executed as a skill, the rule was applied by hand.
-- Progress: 12/15 tasks. Next step: T5.1 (install.sh must install scripts/ so skills can find mdn-lint and mdn-trace, plus README/docs), then T4.3 dogfood in a fresh session.
+- L11: T5.1 done and installed for real. T4.3 started as a sandboxed headless run (temp repo, temp vault, temp XDG config) of /mdn-run via `claude -p`; results pending.
+- Progress: 13/15 tasks. Next step: T4.3 result, installer cleanup of stale templates, then structure/scaling review requested by user.
