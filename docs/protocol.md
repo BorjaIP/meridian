@@ -93,7 +93,7 @@ All dates use ISO format `YYYY-MM-DD HH:MM` (24 hour, local time). Segments are 
 Written when execution starts and completed when it ends.
 
 - `started` is set when the task moves to `in-progress`. `ended` stays empty until execution stops (`ended` with no value).
-- `repo` is the absolute path of the working repository; `branch` is the branch the work was done on.
+- `repo` is the absolute path of the working repository; `branch` is the branch the work was done on: set to the current branch at start and updated at finish to the branch the work ended on.
 - `base` (optional) is the short sha of `HEAD` when the run started; commits in `**Trace:**` are those after it. Resuming a run keeps the original `started` and `base`.
 - Values come from deterministic commands (`date`, `git rev-parse --abbrev-ref HEAD`), not from model self-report.
 

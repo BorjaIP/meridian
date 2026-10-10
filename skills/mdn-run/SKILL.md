@@ -67,7 +67,7 @@ An `in-progress` task with a `**Run:**` block is a **resume**: keep its original
 ### 3. Start: record before executing
 
 1. Run `mdn-trace.sh start <repo>`. Save its full output to a scratch file (it is the snapshot you pass to `finish`). Keep `branch`, `base`, `started`.
-2. If `git status --porcelain` shows uncommitted changes, record `dirty tree at start` in a `**Note:**` line. Do not stash, reset or clean anything.
+2. If `git status --porcelain` shows uncommitted or untracked changes other than under `.atl/` and `odd/` (tooling folders, not user work), record `dirty tree at start` in a `**Note:**` line. Do not stash, reset or clean anything.
 3. Write the task to `project.md`:
    - New task: append under `## Tasks` the line `- [ ] #task owner::agent status::in-progress priority::<p> type::<t> slug::<slug>` with `**Title:**` and `**Description:**` (and `**Acceptance:**` when the user gave one).
    - Existing backlog task: EDIT `status::backlog` to `status::in-progress`.
@@ -89,7 +89,7 @@ If ODD asks the user a question, wait for the answer. Never answer for the user.
 
 Run `mdn-trace.sh finish <repo> <base> <snapshot-file> --slug <slug> --pr` (use `--pr` only when a remote exists; the script tolerates a missing `gh`). Then update the note:
 
-1. EDIT the Run block: fill `ended <ended>`.
+1. EDIT the Run block: fill `ended <ended>` and set `branch` to the `branch` printed by `finish` (the branch the work ended on; it can differ from the branch at start).
 2. INSERT `**Trace:**` after the Run block, segments joined by ` · `:
    - For each `odd_doc` (the slug document first): `[<relative path>](<unc_link>)`.
    - `engram odd/<slug>/tasks`, only when an odd document exists. If the real document name differs from the slug (the model ignored it), use the detected name and record it, e.g. `engram odd/<real-name>/tasks`.
