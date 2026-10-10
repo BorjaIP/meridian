@@ -84,6 +84,8 @@ Options: `--tool claude|codex|all`, `--source <dir>`, `--dry-run`. The installer
 
 Skills from older Meridian versions that no longer exist are moved (not deleted) to `~/.config/meridian/retired-skills-<date>/`, together with a backup of any installed skill it overwrites.
 
+Open a new Claude Code session after installing or updating: a running session keeps the skill text it loaded at the time (observed while testing this repository).
+
 ## Quick start
 
 ```
@@ -118,6 +120,7 @@ Every command other than `/mdn-init` checks that Meridian is initialized and, if
 - The Markdown protocol is agent-agnostic; the installers are not. Only Claude Code and Codex installers exist.
 - Skills are instructions for a model. How faithfully they are followed depends on the model; the scripts and `mdn-lint.sh` exist to check the parts that can be checked mechanically.
 - Metadata comes from git and `gh`, not from the model's account of itself.
+- The one-line `curl` install and the Codex installer have not been run end to end; the tested install path is a local checkout with `--source`.
 - The `/mdn-run` flow was validated end to end in a sandbox and on the author's own vault. It has not been verified in a fresh session by other people, and it has no automated tests.
 - The flow diagram was rendered and checked by eye only, in a rasterizer with a fallback font; the intended fonts and GitHub's rendering were not checked.
 - The vault and the repository are separate: the vault holds pointers, the `odd/` documents live in the repository.
