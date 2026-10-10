@@ -44,4 +44,18 @@ for c in "${cases[@]}"; do
   fi
 done
 
+# The skill-style run fixture must also pass.
+if out="$(bash "$lint" "$fx/valid-run.md" 2>&1)" && [ -z "$out" ]; then
+  pass "valid-run.md passes"
+else
+  bad "valid-run.md should pass; got: $out"
+fi
+
+# Trace collector tests.
+if bash "$root/tests/trace-test.sh" >/dev/null 2>&1; then
+  pass "trace-test.sh passes"
+else
+  bad "trace-test.sh failed (run it directly for details)"
+fi
+
 if [ "$fail" -eq 0 ]; then echo "all tests passed"; else echo "$fail test(s) failed"; exit 1; fi
