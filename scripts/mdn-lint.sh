@@ -35,6 +35,15 @@ for f in "$@"; do
       return 0
     }
 
+    # Return 1 when line s has a tag-like token (<name>, </name>, <name attrs>)
+    # outside inline code. Odd-numbered backtick-split parts are outside code.
+    function has_bare_tag(s,    n, part, i) {
+      n = split(s, part, "`")
+      for (i = 1; i <= n; i += 2)
+        if (part[i] ~ /<\/?[A-Za-z][A-Za-z0-9._:-]*([ \t][^<>`]*)?\/?>/) return 1
+      return 0
+    }
+
     # Validate the task collected so far, then reset the task state.
     function finish_task(    box_done) {
       if (!in_task) return
@@ -110,6 +119,13 @@ for f in "$@"; do
     # Ignore fenced code blocks (examples in documentation).
     /^```/ { fence = !fence; next }
     fence { next }
+
+    # Body text (task continuation lines, headings, quotes included): a bare
+    # tag-like token makes Obsidian stop rendering below it. No `next` here, so
+    # the task rules below still see the line.
+    has_bare_tag($0) {
+      err(NR, "bare <tag> outside backticks (Obsidian reads it as an unclosed HTML tag and stops rendering below it); wrap it in backticks")
+    }
 
     # A task line starts a new task block and ends the previous one.
     /^- \[[ xX]\] #task([ ]|$)/ {
