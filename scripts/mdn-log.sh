@@ -39,6 +39,31 @@ case "$now" in
 esac
 month="${now:0:7}"
 
+# safe_text <text>: wraps every tag-like token (<name>, </name>, <name attrs>,
+# <name/>) found outside inline code in backticks, so Obsidian does not read it
+# as an unclosed HTML tag. Idempotent; leaves `a < b`, `<3`, autolinks and text
+# already in backticks alone (docs/protocol.md, "Text safety").
+safe_text() {
+  MDN_TXT="$1" awk '
+    function wrap(seg,    out, pos) {
+      out = ""
+      while (match(seg, /<\/?[A-Za-z][A-Za-z0-9._:-]*([ \t][^<>`]*)?\/?>/)) {
+        out = out substr(seg, 1, RSTART - 1) "`" substr(seg, RSTART, RLENGTH) "`"
+        seg = substr(seg, RSTART + RLENGTH)
+      }
+      return out seg
+    }
+    BEGIN {
+      n = split(ENVIRON["MDN_TXT"], part, "`")
+      out = ""
+      # Odd-numbered parts are outside inline code; with an odd number of
+      # backticks the last part is code and stays untouched.
+      for (i = 1; i <= n; i++)
+        out = out (i > 1 ? "`" : "") (i % 2 == 1 ? wrap(part[i]) : part[i])
+      printf "%s", out
+    }'
+}
+
 valid_slug() { [ "$1" = "-" ] || printf '%s' "$1" | grep -Eq '^[a-z0-9]+(-[a-z0-9]+)*$'; }
 
 [ "$#" -ge 1 ] || usage
@@ -52,7 +77,7 @@ case "$cmd" in
     case "$EVENTS" in *" $ev "*) ;; *) die "invalid event \"$ev\"" ;; esac
     valid_slug "$slug" || die "invalid slug \"$slug\""
     line="- $now · $ev · $slug"
-    [ "$#" -gt 0 ] && line="$line · $*"
+    [ "$#" -gt 0 ] && line="$line · $(safe_text "$*")"
     mkdir -p "$dir/logs" || die "cannot create $dir/logs"
     f="$dir/logs/$month.md"
     [ -e "$f" ] || printf '# Log %s\n\n' "$month" > "$f" || die "cannot write $f"
