@@ -236,3 +236,16 @@ Daily, status and the digest never read `logs/`; they are for history and audit.
 | `archive_hint=yes` | Printed only when `done_count` is greater than `--done-hint`; suggest archiving. |
 
 `mdn-lint.sh` also prints **warnings**, as `file:line: warning: ...`, that never change the exit status. Today there is one: a task description over 600 characters (continuation lines included). Keep the description short and move the detail to the `odd/` task document.
+
+---
+
+## 10. Text safety
+
+Obsidian's editor reads a bare `<word>` as an unclosed HTML tag and stops rendering Markdown below it. Free text (title, description, acceptance, note, reason, log text) must therefore never contain a tag-like token outside backticks.
+
+A **tag-like token** is `<`, an optional `/`, an ASCII letter, any of `A-Z a-z 0-9 . _ : -`, optionally whitespace and attributes (anything except `<`, `>` and a backtick), an optional `/`, and `>`. Examples: `<branch-name>`, `</x>`, `<a href="x">`, `<br/>`.
+
+- **Rewritten:** every tag-like token outside inline code is wrapped in backticks: `<branch-name>` becomes `` `<branch-name>` ``. Inline code is the text between matching backticks; with an odd number of backticks the text after the last one is left as is. Applying the rule twice changes nothing more.
+- **Left alone:** text already in backticks, `a < b`, `x <3` (a `<` followed by a space or digit), autolinks (`<https://example.com>`, `<user@example.com>`), Templater `<% x %>`, link destinations such as `](<odd/tasks/x y.md>)`, and HTML comments.
+- **Enforced:** the skills that write free text (`mdn-add`, `mdn-run`, `mdn-done`, `mdn-init`) instruct the model to apply the rule; `mdn-log.sh event` applies it to the log text automatically; `mdn-lint.sh` reports any remaining token in the body of `project.md` as an error (not in the frontmatter, not in fenced code blocks, not in inline code).
+- **Verbatim copies:** `mdn-archive` and `mdn-migrate` copy text as it is and do not rewrite it, so the lint is their safety net.
