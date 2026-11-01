@@ -119,4 +119,11 @@ else
   bad "install-test.sh failed (run it directly for details)"
 fi
 
+# Obsidian plugin: pure parsing and filtering functions.
+if node "$root/tests/plugin-test.js" >/dev/null 2>&1; then
+  pass "plugin-test.js passes"
+else
+  bad "plugin-test.js failed (run it directly for details)"
+fi
+
 if [ "$fail" -eq 0 ]; then echo "all tests passed"; else echo "$fail test(s) failed"; exit 1; fi

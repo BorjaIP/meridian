@@ -58,7 +58,7 @@ A task is a checkbox line followed by indented blocks.
 - [ ] #task owner::agent status::review priority::high type::fix slug::fix-login
 ```
 
-Fields use `key::value` syntax (Dataview-compatible). Order is not significant. All five are required.
+Fields use `key::value` syntax. Order is not significant. All five are required.
 
 | Field | Values | Notes |
 |---|---|---|
@@ -221,7 +221,7 @@ Daily, status and the digest never read `logs/`; they are for history and audit.
 
 ## 9. Digest and warnings
 
-`scripts/mdn-index.sh <project.md> [--now "YYYY-MM-DD HH:MM"] [--stale-hours 24] [--done-hint 20]` computes what dashboards need, so clients read its output instead of the whole note. It reads only the given file. Output is `key=value` lines, repeated keys carry one item per line with tab-separated fields:
+`scripts/mdn-index.sh <project.md> [--now "YYYY-MM-DD HH:MM"] [--stale-hours 24] [--done-hint 20]` computes what the status and daily reports need, so clients read its output instead of the whole note. It reads only the given file. Output is `key=value` lines, repeated keys carry one item per line with tab-separated fields:
 
 | Line | Meaning |
 |---|---|

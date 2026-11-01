@@ -4,11 +4,14 @@
 #
 # Usage:
 #   bash <(curl -fsSL https://raw.githubusercontent.com/BorjaIP/meridian/main/install.sh)
-#   bash install.sh [--tool claude|codex|all] [--source <dir>] [--dry-run]
+#   bash install.sh [--tool claude|codex|all] [--source <dir>] [--obsidian [<vault>]] [--dry-run]
 #
 # Options:
 #   --tool <t>     claude (default), codex or all
 #   --source <dir> install from a local checkout; no network is used
+#   --obsidian [v] also install the Obsidian board plugin into <v>/.obsidian/plugins/meridian
+#                  (<v> defaults to `vault:` in the Meridian config); enable it in
+#                  Obsidian under Settings > Community plugins
 #   --dry-run      print what would happen, change nothing
 #
 # Environment (optional model names written into the `model:` frontmatter hints):
@@ -19,15 +22,20 @@ set -euo pipefail
 REPO_URL="https://github.com/BorjaIP/meridian"
 TOOL="claude"
 SOURCE=""
+OBSIDIAN=0
+OBSIDIAN_VAULT=""
 DRY=0
 
-usage() { echo "Usage: $0 [--tool claude|codex|all] [--source <dir>] [--dry-run]"; }
+usage() { echo "Usage: $0 [--tool claude|codex|all] [--source <dir>] [--obsidian [<vault>]] [--dry-run]"; }
 die()   { echo "error: $*" >&2; exit 1; }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --tool)    [[ $# -ge 2 ]] || { usage >&2; exit 1; }; TOOL="$2"; shift 2 ;;
     --source)  [[ $# -ge 2 ]] || { usage >&2; exit 1; }; SOURCE="$2"; shift 2 ;;
+    --obsidian)
+      OBSIDIAN=1; shift
+      if [[ $# -gt 0 && "$1" != --* ]]; then OBSIDIAN_VAULT="$1"; shift; fi ;;
     --dry-run) DRY=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; usage >&2; exit 1 ;;
@@ -173,6 +181,27 @@ for t in Plan.md Task.md; do
     echo "  moved stale template ${t} -> ${RETIRED_DIR}/templates/"
   fi
 done
+
+# ── Obsidian plugin ──────────────────────────────────────────────────────────
+
+if [[ $OBSIDIAN -eq 1 ]]; then
+  for f in manifest.json main.js styles.css; do
+    [[ -f "${SRC}/plugin/${f}" ]] || die "not a Meridian checkout (missing plugin/${f}): ${SRC}"
+  done
+  if [[ -z "$OBSIDIAN_VAULT" && -f "${CONFIG_DIR}/config.md" ]]; then
+    OBSIDIAN_VAULT="$(sed -n 's/^vault:[[:space:]]*//p' "${CONFIG_DIR}/config.md" | head -n 1)"
+  fi
+  [[ -n "$OBSIDIAN_VAULT" ]] || die "--obsidian needs a vault path (argument or 'vault:' in ${CONFIG_DIR}/config.md)"
+  [[ -d "${OBSIDIAN_VAULT}/.obsidian" ]] || die "not an Obsidian vault (no .obsidian folder): ${OBSIDIAN_VAULT}"
+  PLUGIN_DST="${OBSIDIAN_VAULT}/.obsidian/plugins/meridian"
+  echo "Installing the Obsidian plugin -> ${PLUGIN_DST}"
+  act mkdir -p "$PLUGIN_DST"
+  for f in manifest.json main.js styles.css; do
+    act install -m 0644 "${SRC}/plugin/${f}" "${PLUGIN_DST}/${f}"
+    echo "  + ${f}"
+  done
+  echo "  Enable it in Obsidian: Settings > Community plugins > Meridian (reload the app first)."
+fi
 
 # ── Done ─────────────────────────────────────────────────────────────────────
 

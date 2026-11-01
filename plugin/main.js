@@ -1,0 +1,521 @@
+"use strict";
+
+let obsidian;
+try {
+  obsidian = require("obsidian");
+} catch (e) {
+  // Outside Obsidian (unit tests) only the pure functions are used.
+  obsidian = { Plugin: class {}, ItemView: class {}, PluginSettingTab: class {}, Setting: class {}, Notice: class {}, addIcon() {}, setIcon() {} };
+}
+const { Plugin, ItemView, PluginSettingTab, Setting, addIcon, setIcon } = obsidian;
+
+const VIEW_TYPE = "meridian-board";
+const ICON_ID = "meridian";
+// Globe, tilted meridian axis and flow arcs, drawn after the Meridian icon (viewBox 0 0 100 100).
+const ICON_SVG =
+  '<g fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">' +
+  '<circle cx="50" cy="52" r="19"/><ellipse cx="50" cy="52" rx="8" ry="19"/>' +
+  '<path d="M31 52h38M34 42h32M34 62h32"/><path d="M60 8 41 94"/>' +
+  '<path d="M26 30C12 44 12 62 28 78M74 30c14 14 14 32-2 48"/></g>';
+
+const STATUSES = ["review", "in-progress", "backlog", "blocked", "done"];
+const STATUS_LABEL = { review: "Review", "in-progress": "In progress", backlog: "Backlog", blocked: "Blocked", done: "Done" };
+const PRIORITY_RANK = { high: 0, medium: 1, low: 2 };
+const DEFAULTS = { root: "meridian", userName: "", owner: "agent", tab: "review", project: "all" };
+
+// ---------------------------------------------------------------- parsing
+
+function parseFrontmatter(lines) {
+  const fm = {};
+  if (lines[0] !== "---") return { fm, end: 0 };
+  for (let i = 1; i < lines.length; i++) {
+    if (lines[i] === "---") return { fm, end: i + 1 };
+    const m = lines[i].match(/^(\w[\w-]*):\s*([^#]*?)\s*(?:#.*)?$/);
+    if (m && m[2]) fm[m[1]] = m[2];
+  }
+  return { fm, end: 0 };
+}
+
+function parseRun(text) {
+  const run = {};
+  const s = text.match(/started (\d{4}-\d\d-\d\d(?: \d\d:\d\d)?)/);
+  const e = text.match(/ended (\d{4}-\d\d-\d\d(?: \d\d:\d\d)?)/);
+  const b = text.match(/branch (\S+)/);
+  if (s) run.started = s[1];
+  if (e) run.ended = e[1];
+  if (b) run.branch = b[1];
+  return run;
+}
+
+function parseTrace(text) {
+  const trace = { commits: [], pr: null, engram: null };
+  const c = text.match(/commits? ([0-9a-f, ]+?)(?: ·|$)/);
+  if (c) trace.commits = c[1].split(/[,\s]+/).filter(Boolean);
+  const pr = text.match(/PR #(\d+)/);
+  if (pr) trace.pr = pr[1];
+  const en = text.match(/engram (\S+)/);
+  if (en) trace.engram = en[1];
+  return trace;
+}
+
+function parseProject(text, slug, path) {
+  const lines = text.split(/\r?\n/);
+  const { fm, end } = parseFrontmatter(lines);
+  const project = { slug, path, name: fm.title || slug, status: fm.status || "active", repo: fm.repo || "", description: "", tasks: [] };
+  const quote = lines.slice(end).find((l) => l.startsWith("> "));
+  if (quote) project.description = quote.slice(2).trim();
+
+  let cur = null;
+  let field = null;
+  const finish = () => {
+    if (!cur) return;
+    cur.title = (cur.fields.title || "").trim() || cur.slug;
+    cur.description = (cur.fields.description || "").trim();
+    cur.acceptance = (cur.fields.acceptance || "").trim();
+    cur.note = (cur.fields.note || "").trim();
+    cur.run = parseRun(cur.fields.run || "");
+    cur.trace = parseTrace(cur.fields.trace || "");
+    delete cur.fields;
+    project.tasks.push(cur);
+    cur = null;
+  };
+
+  for (let i = end; i < lines.length; i++) {
+    const line = lines[i];
+    const head = line.match(/^- \[( |x|X)\] #task\b(.*)$/);
+    if (head) {
+      finish();
+      cur = { project: slug, path, line: i, checked: head[1] !== " ", fields: {} };
+      for (const m of head[2].matchAll(/([\w-]+)::(\S+)/g)) cur[m[1]] = m[2];
+      cur.owner = cur.owner || "agent";
+      cur.status = cur.status || "backlog";
+      cur.priority = cur.priority || "medium";
+      cur.type = cur.type || "";
+      cur.slug = cur.slug || "task-" + i;
+      field = null;
+      continue;
+    }
+    if (!cur) continue;
+    if (/^\S/.test(line)) { finish(); field = null; continue; }
+    const f = line.match(/^\s+\*\*(\w+):\*\*\s*(.*)$/);
+    if (f) {
+      field = f[1].toLowerCase();
+      cur.fields[field] = f[2];
+    } else if (field && line.trim()) {
+      cur.fields[field] += "\n" + line.trim();
+    }
+  }
+  finish();
+  return project;
+}
+
+function summarize(projects) {
+  const byStatus = Object.fromEntries(STATUSES.map((s) => [s, 0]));
+  let open = 0;
+  for (const p of projects) {
+    for (const t of p.tasks) {
+      byStatus[t.status] = (byStatus[t.status] || 0) + 1;
+      if (t.status !== "done") open++;
+    }
+  }
+  return { projects: projects.filter((p) => p.status === "active").length, open, byStatus };
+}
+
+function filterTasks(tasks, f) {
+  const q = (f.query || "").trim().toLowerCase();
+  return tasks.filter(
+    (t) =>
+      (f.owner === "all" || t.owner === f.owner) &&
+      (f.project === "all" || t.project === f.project) &&
+      (!q || (t.title + " " + t.slug + " " + t.type).toLowerCase().includes(q))
+  );
+}
+
+function sortTasks(tasks, status) {
+  const stamp = (t) => t.run.ended || t.run.started || "";
+  return tasks.slice().sort((a, b) => {
+    if (status === "review" || status === "done") return stamp(b).localeCompare(stamp(a));
+    return (PRIORITY_RANK[a.priority] ?? 1) - (PRIORITY_RANK[b.priority] ?? 1) || a.line - b.line;
+  });
+}
+
+function toDate(s) {
+  const m = s && s.match(/^(\d{4})-(\d\d)-(\d\d)(?: (\d\d):(\d\d))?$/);
+  return m ? new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0)) : null;
+}
+
+function ago(s, now) {
+  const d = toDate(s);
+  if (!d) return "";
+  const mins = Math.max(0, Math.round(((now || new Date()) - d) / 60000));
+  if (mins < 60) return mins + "m ago";
+  if (mins < 1440) return Math.round(mins / 60) + "h ago";
+  return Math.round(mins / 1440) + "d ago";
+}
+
+// Splits free text into plain and inline-code parts. Meridian wraps tag-like text in backticks,
+// so the board shows those parts as code instead of printing the backticks.
+function splitCode(text) {
+  const parts = [];
+  const re = /`([^`\n]+)`/g;
+  let last = 0;
+  let m;
+  while ((m = re.exec(text))) {
+    if (m.index > last) parts.push({ text: text.slice(last, m.index) });
+    parts.push({ text: m[1], code: true });
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) parts.push({ text: text.slice(last) });
+  return parts;
+}
+
+function richText(el, text) {
+  for (const p of splitCode(text)) {
+    if (p.code) el.createEl("code", { text: p.text });
+    else el.appendText(p.text);
+  }
+}
+
+function hue(slug) {
+  let h = 0;
+  for (const c of slug) h = (h * 31 + c.charCodeAt(0)) % 360;
+  return h;
+}
+
+// ---------------------------------------------------------------- plugin
+
+class MeridianPlugin extends Plugin {
+  async onload() {
+    this.settings = Object.assign({}, DEFAULTS, await this.loadData());
+    addIcon(ICON_ID, ICON_SVG);
+    this.registerView(VIEW_TYPE, (leaf) => new BoardView(leaf, this));
+    this.addRibbonIcon(ICON_ID, "Open Meridian board", () => this.activate());
+    this.addCommand({ id: "open-board", name: "Open board", callback: () => this.activate() });
+    this.addSettingTab(new MeridianSettings(this.app, this));
+
+    let timer = null;
+    const touch = (file) => {
+      const p = file && file.path;
+      if (!p || !p.startsWith(this.settings.root + "/")) return;
+      clearTimeout(timer);
+      timer = setTimeout(() => this.refreshViews(), 400);
+    };
+    for (const ev of ["modify", "create", "delete", "rename"]) this.registerEvent(this.app.vault.on(ev, touch));
+  }
+
+  onunload() {
+    this.app.workspace.detachLeavesOfType(VIEW_TYPE);
+  }
+
+  saveSettings() {
+    return this.saveData(this.settings);
+  }
+
+  async activate() {
+    let leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
+    if (!leaf) {
+      leaf = this.app.workspace.getLeaf("tab");
+      await leaf.setViewState({ type: VIEW_TYPE, active: true });
+    }
+    this.app.workspace.revealLeaf(leaf);
+  }
+
+  refreshViews() {
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) leaf.view.refresh && leaf.view.refresh();
+  }
+
+  async loadProjects() {
+    const root = this.settings.root.replace(/\/+$/, "");
+    const files = this.app.vault.getMarkdownFiles().filter((f) => new RegExp("^" + root.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "/[^/]+/project\\.md$").test(f.path));
+    const projects = [];
+    for (const f of files) {
+      const slug = f.path.split("/")[root.split("/").length];
+      projects.push(parseProject(await this.app.vault.read(f), slug, f.path));
+    }
+    projects.sort((a, b) => a.name.localeCompare(b.name));
+    return projects;
+  }
+}
+
+// ---------------------------------------------------------------- view
+
+class BoardView extends ItemView {
+  constructor(leaf, plugin) {
+    super(leaf);
+    this.plugin = plugin;
+    this.projects = [];
+    this.expanded = new Set();
+    this.query = "";
+  }
+  getViewType() { return VIEW_TYPE; }
+  getDisplayText() { return "Meridian"; }
+  getIcon() { return ICON_ID; }
+
+  async onOpen() {
+    this.contentEl.addClass("mdn-root");
+    await this.refresh();
+  }
+
+  async refresh() {
+    this.projects = await this.plugin.loadProjects();
+    this.render();
+  }
+
+  set(key, value) {
+    this.plugin.settings[key] = value;
+    this.plugin.saveSettings();
+    this.render();
+  }
+
+  render() {
+    const el = this.contentEl;
+    const scroll = el.scrollTop;
+    const focus = el.querySelector(".mdn-search input:focus");
+    const caret = focus ? focus.selectionStart : 0;
+    el.empty();
+    const s = this.plugin.settings;
+    const now = new Date();
+    const filters = { owner: s.owner, project: s.project, query: this.query };
+    const all = this.projects.flatMap((p) => p.tasks);
+    const tasks = filterTasks(all, filters);
+    const scoped = this.projects.filter((p) => s.project === "all" || p.slug === s.project);
+    const stats = summarize(scoped.map((p) => Object.assign({}, p, { tasks: filterTasks(p.tasks, { owner: s.owner, project: "all", query: "" }) })));
+
+    const page = el.createDiv({ cls: "mdn-page" });
+    this.header(page, now);
+    this.statCards(page, stats);
+    const grid = page.createDiv({ cls: "mdn-grid" });
+    const main = grid.createDiv({ cls: "mdn-main" });
+    const side = grid.createDiv({ cls: "mdn-side" });
+    this.taskCard(main, tasks);
+    this.progressCard(main);
+    this.reviewCard(side, filterTasks(all, { owner: "all", project: s.project, query: "" }));
+    this.activityCard(side, filterTasks(all, { owner: "all", project: s.project, query: "" }), now);
+
+    el.scrollTop = scroll;
+    if (focus) {
+      const input = el.querySelector(".mdn-search input");
+      input.focus();
+      input.setSelectionRange(caret, caret);
+    }
+  }
+
+  header(parent, now) {
+    const s = this.plugin.settings;
+    const h = parent.createDiv({ cls: "mdn-header" });
+    const left = h.createDiv({ cls: "mdn-header-left" });
+    const hour = now.getHours();
+    const greet = hour < 12 ? "Good morning" : hour < 20 ? "Good afternoon" : "Good evening";
+    left.createEl("h1", { text: s.userName ? greet + ", " + s.userName : greet });
+    const date = now.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+    left.createDiv({ cls: "mdn-sub", text: date + " · here is what is happening across your Meridian projects" });
+
+    const right = h.createDiv({ cls: "mdn-controls" });
+    const sel = right.createEl("select", { cls: "dropdown mdn-select" });
+    sel.createEl("option", { value: "all", text: "All projects" });
+    for (const p of this.projects) sel.createEl("option", { value: p.slug, text: p.name });
+    sel.value = s.project;
+    sel.onchange = () => this.set("project", sel.value);
+
+    const seg = right.createDiv({ cls: "mdn-seg" });
+    for (const [v, label] of [["agent", "Agent"], ["me", "Me"], ["all", "All"]]) {
+      const b = seg.createEl("button", { text: label, cls: s.owner === v ? "is-on" : "" });
+      b.onclick = () => this.set("owner", v);
+    }
+    const search = right.createDiv({ cls: "mdn-search" });
+    setIcon(search.createSpan({ cls: "mdn-search-icon" }), "search");
+    const input = search.createEl("input", { type: "search", placeholder: "Search tasks…" });
+    input.value = this.query;
+    input.oninput = () => { this.query = input.value; this.render(); };
+    const refresh = right.createEl("button", { cls: "mdn-icon-btn", attr: { "aria-label": "Refresh" } });
+    setIcon(refresh, "refresh-cw");
+    refresh.onclick = () => this.refresh();
+  }
+
+  statCards(parent, stats) {
+    const row = parent.createDiv({ cls: "mdn-stats" });
+    const card = (label, value, sub, tone, icon) => {
+      const c = row.createDiv({ cls: "mdn-stat" });
+      const l = c.createDiv({ cls: "mdn-stat-label" });
+      setIcon(l.createSpan(), icon);
+      l.createSpan({ text: label });
+      c.createDiv({ cls: "mdn-stat-value " + (tone || ""), text: String(value) });
+      c.createDiv({ cls: "mdn-stat-sub " + (tone || ""), text: sub });
+    };
+    const b = stats.byStatus;
+    card("Active projects", stats.projects, this.projects.length - stats.projects + " paused", "", "folder-kanban");
+    card("Open tasks", stats.open, b["in-progress"] + " in progress", "", "circle-dashed");
+    card("In review", b.review, "waiting for you", b.review ? "is-warn" : "", "eye");
+    card("Blocked", b.blocked, b.blocked ? "need attention" : "all clear", b.blocked ? "is-bad" : "is-good", "octagon-alert");
+  }
+
+  taskCard(parent, tasks) {
+    const s = this.plugin.settings;
+    const card = parent.createDiv({ cls: "mdn-card" });
+    const head = card.createDiv({ cls: "mdn-card-head" });
+    head.createEl("h2", { text: s.owner === "all" ? "Tasks" : s.owner === "me" ? "My tasks" : "Agent tasks" });
+    const tabs = head.createDiv({ cls: "mdn-tabs" });
+    for (const st of STATUSES) {
+      const n = tasks.filter((t) => t.status === st).length;
+      const b = tabs.createEl("button", { cls: s.tab === st ? "is-on" : "" });
+      b.createSpan({ text: STATUS_LABEL[st] });
+      b.createSpan({ cls: "mdn-count", text: String(n) });
+      b.onclick = () => this.set("tab", st);
+    }
+    const list = card.createDiv({ cls: "mdn-list" });
+    const rows = sortTasks(tasks.filter((t) => t.status === s.tab), s.tab);
+    if (!rows.length) list.createDiv({ cls: "mdn-empty", text: "Nothing in " + STATUS_LABEL[s.tab].toLowerCase() + "." });
+    for (const t of rows) this.taskRow(list, t, true);
+  }
+
+  taskRow(parent, t, showProject) {
+    const key = t.path + "#" + t.slug;
+    const row = parent.createDiv({ cls: "mdn-row" + (this.expanded.has(key) ? " is-open" : "") });
+    const line = row.createDiv({ cls: "mdn-row-line" });
+    line.createSpan({ cls: "mdn-status is-" + t.status });
+    richText(line.createSpan({ cls: "mdn-title" }), t.title);
+    if (t.type) line.createSpan({ cls: "mdn-chip", text: t.type });
+    if (t.owner === "me") line.createSpan({ cls: "mdn-chip is-me", text: "me" });
+    const meta = line.createDiv({ cls: "mdn-meta" });
+    if (showProject) {
+      const p = meta.createSpan({ cls: "mdn-proj" });
+      p.createSpan({ cls: "mdn-dot", attr: { style: "background:hsl(" + hue(t.project) + " 60% 55%)" } });
+      p.createSpan({ text: t.project });
+    }
+    const bars = meta.createSpan({ cls: "mdn-prio", attr: { "aria-label": t.priority } });
+    const lvl = { high: 3, medium: 2, low: 1 }[t.priority] || 2;
+    for (let i = 1; i <= 3; i++) bars.createSpan({ cls: i <= lvl ? "on" : "" });
+    meta.createSpan({ cls: "mdn-when", text: ago(t.run.ended || t.run.started, new Date()) || "—" });
+    line.onclick = () => {
+      this.expanded.has(key) ? this.expanded.delete(key) : this.expanded.add(key);
+      row.toggleClass("is-open", this.expanded.has(key));
+    };
+
+    const d = row.createDiv({ cls: "mdn-detail" });
+    const field = (label, text) => {
+      if (!text) return;
+      const f = d.createDiv({ cls: "mdn-field" });
+      f.createDiv({ cls: "mdn-field-label", text: label });
+      richText(f.createDiv({ cls: "mdn-field-text" }), text);
+    };
+    field("Description", t.description);
+    field("Acceptance", t.acceptance);
+    field("Note", t.note);
+    const facts = [];
+    if (t.run.branch) facts.push("branch " + t.run.branch);
+    if (t.run.started) facts.push("started " + t.run.started);
+    if (t.run.ended) facts.push("ended " + t.run.ended);
+    if (t.trace.commits.length) facts.push(t.trace.commits.length + " commits");
+    if (t.trace.pr) facts.push("PR #" + t.trace.pr);
+    if (facts.length) d.createDiv({ cls: "mdn-facts", text: facts.join(" · ") });
+    const open = d.createEl("button", { cls: "mdn-open", text: "Open in note" });
+    open.onclick = async (e) => {
+      e.stopPropagation();
+      const file = this.app.vault.getAbstractFileByPath(t.path);
+      if (file) await this.app.workspace.getLeaf("tab").openFile(file, { eState: { line: t.line } });
+    };
+  }
+
+  progressCard(parent) {
+    const s = this.plugin.settings;
+    const card = parent.createDiv({ cls: "mdn-card" });
+    const head = card.createDiv({ cls: "mdn-card-head" });
+    head.createEl("h2", { text: "Project progress" });
+    if (s.project !== "all") {
+      const b = head.createEl("button", { cls: "mdn-link", text: "All projects" });
+      b.onclick = () => this.set("project", "all");
+    }
+    const table = card.createDiv({ cls: "mdn-table" });
+    const hd = table.createDiv({ cls: "mdn-tr is-head" });
+    for (const c of ["Project", "Status", "Progress", "Review", "Open"]) hd.createDiv({ text: c });
+    for (const p of this.projects) {
+      const done = p.tasks.filter((t) => t.status === "done").length;
+      const pct = p.tasks.length ? Math.round((100 * done) / p.tasks.length) : 0;
+      const tr = table.createDiv({ cls: "mdn-tr is-click" + (s.project === p.slug ? " is-on" : "") });
+      const name = tr.createDiv({ cls: "mdn-td-name" });
+      name.createSpan({ cls: "mdn-dot", attr: { style: "background:hsl(" + hue(p.slug) + " 60% 55%)" } });
+      name.createSpan({ text: p.name });
+      tr.createDiv().createSpan({ cls: "mdn-pill", text: p.status });
+      const bar = tr.createDiv({ cls: "mdn-bar-cell" });
+      bar.createDiv({ cls: "mdn-bar" }).createDiv({ cls: "mdn-bar-fill", attr: { style: "width:" + pct + "%" } });
+      bar.createSpan({ text: pct + "%" });
+      tr.createDiv({ text: String(p.tasks.filter((t) => t.status === "review").length) });
+      tr.createDiv({ text: String(p.tasks.filter((t) => t.status !== "done").length) });
+      tr.onclick = () => this.set("project", s.project === p.slug ? "all" : p.slug);
+    }
+    if (!this.projects.length) table.createDiv({ cls: "mdn-empty", text: "No project.md found under “" + s.root + "/”." });
+  }
+
+  reviewCard(parent, tasks) {
+    const card = parent.createDiv({ cls: "mdn-card" });
+    const head = card.createDiv({ cls: "mdn-card-head" });
+    head.createEl("h2", { text: "Waiting for your review" });
+    const rows = sortTasks(tasks.filter((t) => t.status === "review"), "review");
+    head.createSpan({ cls: "mdn-count", text: String(rows.length) });
+    const list = card.createDiv({ cls: "mdn-side-list" });
+    if (!rows.length) list.createDiv({ cls: "mdn-empty", text: "Nothing to review." });
+    for (const t of rows.slice(0, 8)) {
+      const r = list.createDiv({ cls: "mdn-side-row" });
+      r.createSpan({ cls: "mdn-dot", attr: { style: "background:hsl(" + hue(t.project) + " 60% 55%)" } });
+      richText(r.createSpan({ cls: "mdn-side-title" }), t.title);
+      r.createSpan({ cls: "mdn-when", text: ago(t.run.ended, new Date()) });
+      r.onclick = async () => {
+        const file = this.app.vault.getAbstractFileByPath(t.path);
+        if (file) await this.app.workspace.getLeaf("tab").openFile(file, { eState: { line: t.line } });
+      };
+    }
+    if (rows.length > 8) list.createDiv({ cls: "mdn-more", text: "+" + (rows.length - 8) + " more" });
+  }
+
+  activityCard(parent, tasks, now) {
+    const card = parent.createDiv({ cls: "mdn-card" });
+    card.createDiv({ cls: "mdn-card-head" }).createEl("h2", { text: "Recent activity" });
+    const events = [];
+    for (const t of tasks) {
+      if (t.run.ended) events.push({ at: t.run.ended, verb: "finished", t });
+      else if (t.run.started) events.push({ at: t.run.started, verb: "started", t });
+    }
+    events.sort((a, b) => b.at.localeCompare(a.at));
+    const list = card.createDiv({ cls: "mdn-side-list" });
+    if (!events.length) list.createDiv({ cls: "mdn-empty", text: "No runs recorded yet." });
+    for (const e of events.slice(0, 6)) {
+      const r = list.createDiv({ cls: "mdn-side-row is-activity" });
+      const text = r.createDiv({ cls: "mdn-side-title" });
+      text.createSpan({ cls: "mdn-verb", text: "Agent " + e.verb + " " });
+      richText(text.createSpan(), e.t.title);
+      r.createSpan({ cls: "mdn-when", text: ago(e.at, now) });
+    }
+  }
+}
+
+// ---------------------------------------------------------------- settings
+
+class MeridianSettings extends PluginSettingTab {
+  constructor(app, plugin) {
+    super(app, plugin);
+    this.plugin = plugin;
+  }
+  display() {
+    const { containerEl } = this;
+    containerEl.empty();
+    new Setting(containerEl)
+      .setName("Meridian folder")
+      .setDesc("Vault folder that holds one subfolder per project, each with a project.md.")
+      .addText((t) => t.setValue(this.plugin.settings.root).onChange(async (v) => {
+        this.plugin.settings.root = v.trim() || DEFAULTS.root;
+        await this.plugin.saveSettings();
+        this.plugin.refreshViews();
+      }));
+    new Setting(containerEl)
+      .setName("Your name")
+      .setDesc("Used in the greeting. Optional.")
+      .addText((t) => t.setValue(this.plugin.settings.userName).onChange(async (v) => {
+        this.plugin.settings.userName = v.trim();
+        await this.plugin.saveSettings();
+        this.plugin.refreshViews();
+      }));
+  }
+}
+
+module.exports = MeridianPlugin;
+Object.assign(module.exports, { default: MeridianPlugin, parseProject, summarize, filterTasks, sortTasks, ago, splitCode });

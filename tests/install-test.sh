@@ -32,7 +32,6 @@ ok=1; for s in "${skills[@]}"; do [ -s "$h/.claude/skills/$s/SKILL.md" ] || ok=0
 ok=1; for s in mdn-lint.sh mdn-trace.sh mdn-migrate.sh mdn-log.sh mdn-index.sh; do [ -x "$h/.config/meridian/scripts/$s" ] || ok=0; done
 [ "$ok" -eq 1 ] && [ "$(ls "$h/.config/meridian/scripts" | wc -l)" -eq 5 ] && pass "5 scripts installed and executable" || bad "scripts missing or not executable"
 [ -s "$h/.config/meridian/templates/Project.md" ] && pass "template installed" || bad "template missing"
-[ -s "$h/.config/meridian/templates/Dashboard.md" ] && pass "Dashboard template installed" || bad "Dashboard template missing"
 [ ! -e "$h/.codex" ] && pass "claude install does not touch .codex" || bad ".codex created by claude install"
 if grep -q '^model: haiku' "$h/.claude/skills/mdn-add/SKILL.md" \
    && grep -q '^model: sonnet' "$h/.claude/skills/mdn-run/SKILL.md"; then
@@ -109,5 +108,26 @@ run_install "$h" --tool nope
 [ "$rc" -ne 0 ] && pass "unknown tool fails" || bad "unknown tool accepted"
 run_install "$h" --source "$work/does-not-exist"
 [ "$rc" -ne 0 ] && pass "missing source fails" || bad "missing source accepted"
+
+# 8. Obsidian plugin (--obsidian).
+h="$(newhome)"; run_install "$h"
+[ ! -e "$h/.obsidian" ] && pass "plain install installs no plugin" || bad "plain install touched an Obsidian folder"
+v="$work/vault"; mkdir -p "$v/.obsidian"
+h="$(newhome)"; run_install "$h" --obsidian "$v"
+ok=1; for f in manifest.json main.js styles.css; do [ -s "$v/.obsidian/plugins/meridian/$f" ] || ok=0; done
+[ "$rc" -eq 0 ] && [ "$ok" -eq 1 ] && pass "--obsidian <vault> installs the plugin files" || bad "--obsidian <vault> wrong (rc=$rc): $out"
+cmp -s "$root/plugin/main.js" "$v/.obsidian/plugins/meridian/main.js" && pass "installed main.js matches the checkout" || bad "installed main.js differs"
+[ ! -e "$v/.obsidian/community-plugins.json" ] && pass "plugin is not enabled behind your back" || bad "community-plugins.json was written"
+h="$(newhome)"; mkdir -p "$h/.config/meridian"
+v2="$work/vault2"; mkdir -p "$v2/.obsidian"; printf -- '---\nvault: %s\n---\n' "$v2" > "$h/.config/meridian/config.md"
+run_install "$h" --obsidian
+[ "$rc" -eq 0 ] && [ -s "$v2/.obsidian/plugins/meridian/manifest.json" ] && pass "--obsidian without a path uses the config vault" || bad "--obsidian from config wrong (rc=$rc): $out"
+h="$(newhome)"; run_install "$h" --obsidian "$work/not-a-vault"
+[ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q "not an Obsidian vault" && pass "--obsidian refuses a folder without .obsidian" || bad "--obsidian accepted a non-vault"
+h="$(newhome)"; run_install "$h" --obsidian
+[ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q "needs a vault path" && pass "--obsidian without any vault fails clearly" || bad "--obsidian without vault wrong (rc=$rc)"
+v3="$work/vault3"; mkdir -p "$v3/.obsidian"
+h="$(newhome)"; run_install "$h" --obsidian "$v3" --dry-run
+[ ! -e "$v3/.obsidian/plugins" ] && pass "--obsidian --dry-run writes nothing" || bad "--obsidian --dry-run wrote files"
 
 if [ "$fail" -eq 0 ]; then echo "all install tests passed"; else echo "$fail install test(s) failed"; exit 1; fi

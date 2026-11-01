@@ -90,7 +90,7 @@
   <rect x="316" y="468" width="660" height="56" rx="6" fill="#ffffff"/>
     <rect x="316" y="468" width="660" height="56" rx="6" fill="#0a0a0a" fill-opacity="0.05" stroke="#404040" stroke-width="1"/>
     <text class="nm" x="646" y="490" fill="#0a0a0a" text-anchor="middle">Obsidian vault</text>
-    <text class="sb" x="646" y="508" fill="#595959" text-anchor="middle">project.md · logs/YYYY-MM.md · dashboard.md</text>
+    <text class="sb" x="646" y="508" fill="#595959" text-anchor="middle">project.md · logs/YYYY-MM.md</text>
 
   <!-- Legend -->
   <line x1="40" y1="556" x2="1000" y2="556" stroke="#0a0a0a" stroke-opacity="0.14" stroke-width="0.8"/>
