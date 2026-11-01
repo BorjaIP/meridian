@@ -77,15 +77,13 @@ for ev in run-started run-finished blocked; do
 done
 has "$sk/mdn-done/SKILL.md" 'reopened' && has "$sk/mdn-done/SKILL.md" 'done <slug>' && pass "mdn-done: logs done and reopened" || bad "mdn-done: missing done/reopened events"
 has "$sk/mdn-init/SKILL.md" 'init - ' && pass "mdn-init: logs init" || bad "mdn-init: missing init event"
-has "$sk/mdn-init/SKILL.md" 'dashboard.md' && pass "mdn-init: mentions dashboard.md" || bad "mdn-init: missing dashboard.md"
-has "$sk/mdn-init/SKILL.md" 'never overwrite' && pass "mdn-init: never overwrite dashboard" || bad "mdn-init: missing 'never overwrite'"
+has "$sk/mdn-init/SKILL.md" 'dashboard' && bad "mdn-init: still mentions a dashboard (the Obsidian plugin is the board)" || pass "mdn-init: creates no dashboard"
 for s in mdn-daily mdn-status; do
   has "$sk/$s/SKILL.md" 'mdn-index.sh' && pass "$s: uses mdn-index.sh" || bad "$s: missing mdn-index.sh"
   has "$sk/$s/SKILL.md" 'Never read `logs/`' && pass "$s: never reads logs" || bad "$s: missing 'Never read logs/' rule"
 done
 has "$sk/mdn-status/SKILL.md" '/mdn-archive' && has "$sk/mdn-status/SKILL.md" 'archive_hint' && pass "mdn-status: archive hint" || bad "mdn-status: missing archive_hint"
-[ -f "$root/templates/Dashboard.md" ] && [ "$(grep -c '^```dataview' "$root/templates/Dashboard.md")" -eq 4 ] \
-  && pass "Dashboard template has 4 dataview blocks" || bad "templates/Dashboard.md missing or not 4 dataview blocks"
+[ ! -e "$root/templates/Dashboard.md" ] && pass "no Dataview Dashboard template" || bad "templates/Dashboard.md should be gone"
 
 # Text safety: skills that write free text carry the backtick rule.
 for s in mdn-add mdn-run mdn-done mdn-init; do

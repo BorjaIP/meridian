@@ -23,7 +23,7 @@ Meridian keeps one Markdown note per project in your Obsidian vault. Each task i
 | `odd/tasks/<slug>.md`, the task document, in the repository | The task line with its status in `project.md` |
 | Work-unit commits on the feature branch | The Run block: start and end, repo, branch, base |
 | An Engram mirror under the topic `odd/<slug>/tasks` | The Trace: link to the `odd/` document (a Windows UNC path), commits, PR |
-| | The monthly log `logs/YYYY-MM.md` and the dashboard |
+| | The monthly log `logs/YYYY-MM.md`; the Obsidian plugin shows it all as a board |
 
 How the two connect:
 
@@ -50,7 +50,6 @@ What is not guaranteed:
 | Config, scripts, templates | `~/.config/meridian/` |
 | Project note with all tasks | `<vault>/meridian/<project>/project.md` |
 | Archived tasks and events | `<vault>/meridian/<project>/logs/YYYY-MM.md` |
-| Dashboard (Dataview) | `<vault>/meridian/dashboard.md` |
 | ODD task document | `<repo>/odd/tasks/<slug>.md` |
 | Engram mirror | topic `odd/<slug>/tasks` |
 

@@ -32,7 +32,7 @@ ok=1; for s in "${skills[@]}"; do [ -s "$h/.claude/skills/$s/SKILL.md" ] || ok=0
 ok=1; for s in mdn-lint.sh mdn-trace.sh mdn-migrate.sh mdn-log.sh mdn-index.sh; do [ -x "$h/.config/meridian/scripts/$s" ] || ok=0; done
 [ "$ok" -eq 1 ] && [ "$(ls "$h/.config/meridian/scripts" | wc -l)" -eq 5 ] && pass "5 scripts installed and executable" || bad "scripts missing or not executable"
 [ -s "$h/.config/meridian/templates/Project.md" ] && pass "template installed" || bad "template missing"
-[ -s "$h/.config/meridian/templates/Dashboard.md" ] && pass "Dashboard template installed" || bad "Dashboard template missing"
+[ ! -e "$h/.config/meridian/templates/Dashboard.md" ] && pass "no Dashboard template installed" || bad "Dashboard template installed"
 [ ! -e "$h/.codex" ] && pass "claude install does not touch .codex" || bad ".codex created by claude install"
 if grep -q '^model: haiku' "$h/.claude/skills/mdn-add/SKILL.md" \
    && grep -q '^model: sonnet' "$h/.claude/skills/mdn-run/SKILL.md"; then
@@ -109,6 +109,14 @@ run_install "$h" --tool nope
 [ "$rc" -ne 0 ] && pass "unknown tool fails" || bad "unknown tool accepted"
 run_install "$h" --source "$work/does-not-exist"
 [ "$rc" -ne 0 ] && pass "missing source fails" || bad "missing source accepted"
+
+# 7b. A Dashboard template left by an older version is moved aside, never deleted.
+h="$(newhome)"; mkdir -p "$h/.config/meridian/templates"; echo old > "$h/.config/meridian/templates/Dashboard.md"
+run_install "$h"
+if [ "$rc" -eq 0 ] && [ ! -e "$h/.config/meridian/templates/Dashboard.md" ] \
+   && [ -n "$(find "$h/.config/meridian" -path '*retired-skills-*' -name Dashboard.md 2>/dev/null)" ]; then
+  pass "stale Dashboard template moved to retired-skills"
+else bad "stale Dashboard template not moved (rc=$rc)"; fi
 
 # 8. Obsidian plugin (--obsidian).
 h="$(newhome)"; run_install "$h"
