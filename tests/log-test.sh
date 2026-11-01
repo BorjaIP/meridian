@@ -139,4 +139,33 @@ check "spaces: archive" "$rc"
 grep -q 'archived' "$s/logs/2026-10.md" && ! grep -q compare-parsers "$s/project.md"; check "spaces: results correct" "$?"
 ls "$s" | grep -qv -e '^logs$' -e '^project.md$' && bad "spaces: stray temp files left" || pass "spaces: no stray temp files"
 
+# 12. Text safety: tag-like tokens outside inline code are wrapped in backticks.
+# ev_text <label> <input text> <expected text>: logs the input, expects the stored text.
+ev_text() {
+  local d; d="$(mktemp -d "$tmp/ts.XXXXXX")"
+  MDN_NOW="2026-10-13 10:00" "$log" event "$d" created x "$2"
+  same "$d/logs/2026-10.md" "# Log 2026-10
+
+- 2026-10-13 10:00${SEP}created${SEP}x${SEP}$3
+"; check "text safety: $1" "$?"
+}
+ev_text "wraps <branch-name>" 'worktree at <branch-name> ready' 'worktree at `<branch-name>` ready'
+ev_text "wraps a closing tag" 'close </x> here' 'close `</x>` here'
+ev_text "wraps a tag with attributes" 'use <a href="x"> link' 'use `<a href="x">` link'
+ev_text "wraps a self-closing tag" 'a <br/> b' 'a `<br/>` b'
+ev_text "leaves backticked text untouched" 'keep `<name>` as is' 'keep `<name>` as is'
+ev_text "mixed: one inside backticks, one outside" 'in `<a>` and <b> done' 'in `<a>` and `<b>` done'
+ev_text "odd backticks leave the tail untouched" 'x <a> `y <b>' 'x `<a>` `y <b>'
+ev_text "leaves a < b untouched" 'if a < b then' 'if a < b then'
+ev_text "leaves x <3 untouched" 'I <3 this' 'I <3 this'
+ev_text "leaves an autolink untouched" 'see <https://example.com> now' 'see <https://example.com> now'
+ev_text "leaves an email autolink untouched" 'mail <user@example.com> now' 'mail <user@example.com> now'
+ev_text "leaves Templater syntax untouched" 'tpl <% x %> end' 'tpl <% x %> end'
+# Idempotent: logging already-sanitized text again changes nothing more.
+d="$(mktemp -d "$tmp/ts.XXXXXX")"
+MDN_NOW="2026-10-13 10:00" "$log" event "$d" created x 'worktree at <branch-name>'
+first="$(sed -n '3p' "$d/logs/2026-10.md" | sed "s/^.*x${SEP}//")"
+MDN_NOW="2026-10-13 10:01" "$log" event "$d" created x "$first"
+[ "$(sed -n '4p' "$d/logs/2026-10.md" | sed "s/^.*x${SEP}//")" = "$first" ]; check "text safety: idempotent on sanitized text" "$?"
+
 if [ "$fail" -eq 0 ]; then echo "all tests passed"; else echo "$fail test(s) failed"; exit 1; fi

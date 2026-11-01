@@ -76,6 +76,8 @@ Create `<vault>/meridian/` if needed, then WRITE `<vault>/meridian/<slug>/projec
 - `repo`: the path when known, otherwise remove the line.
 - The description line under the heading: the `description` argument if given, otherwise the line from "Description derivation" (formatted `> <line>`), otherwise the `> TODO: add a one-line description of this project.` placeholder.
 
+**Text safety.** Before writing any title, description, acceptance, note or reason into a vault note or log, wrap every tag-like placeholder such as `<branch-name>`, `<name>` or `</x>` in backticks, unless it is already inside backticks. Obsidian reads a bare `<word>` as an unclosed HTML tag and stops rendering everything below it. Plain text like `a < b` needs no change. `mdn-log.sh` applies this rule to log text by itself; `mdn-lint.sh` reports any that slipped through. A derived description already has backticks and HTML stripped (see "Description derivation"); this rule covers a `description` argument given as is.
+
 The `logs/` folder appears later, when the first event or `/mdn-archive` writes to it.
 
 Run `scripts/mdn-lint.sh <project.md>` (look in `~/.config/meridian/scripts/` first, then the repository's `scripts/`; if not found, say the check was skipped). A note with no tasks is valid.

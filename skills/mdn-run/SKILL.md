@@ -72,6 +72,8 @@ An `in-progress` task with a `**Run:**` block is a **resume**: keep its original
    - New task: append under `## Tasks` the line `- [ ] #task owner::agent status::in-progress priority::<p> type::<t> slug::<slug>` with `**Title:**` and `**Description:**` (and `**Acceptance:**` when the user gave one).
    - Existing backlog task: EDIT `status::backlog` to `status::in-progress`.
    - Add `  **Run:** started <started> · ended · repo <repo> · branch <branch> · base <base>` after the existing blocks.
+
+   **Text safety.** Before writing any title, description, acceptance, note or reason into a vault note or log, wrap every tag-like placeholder such as `<branch-name>`, `<name>` or `</x>` in backticks, unless it is already inside backticks. Obsidian reads a bare `<word>` as an unclosed HTML tag and stops rendering everything below it. Plain text like `a < b` needs no change. `mdn-log.sh` applies this rule to log text by itself; `mdn-lint.sh` reports any that slipped through. This applies to the Title, Description and Acceptance written here and to every `**Note:**` reason (step 5.4).
 4. READ the note back and confirm the line and the Run block are there. Run `mdn-lint.sh <project.md>`; fix any diagnostic before continuing.
 5. Log: for a new task first `created <slug> "agent/<type>"`; then `run-started <slug>` (on a resume `run-started <slug> resumed`).
 

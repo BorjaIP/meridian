@@ -61,6 +61,22 @@ else
   bad "warn-long-description.md: expected 2 warnings and exit 0; rc=$rc out=$out"
 fi
 
+# Text safety: a bare tag-like token in the body is an error (Obsidian reads it
+# as an unclosed HTML tag); inline code, fenced blocks, frontmatter and
+# autolinks are fine.
+out="$(bash "$lint" "$fx/invalid-angle.md" 2>&1)"; rc=$?
+if [ "$rc" -ne 0 ] \
+  && printf '%s\n' "$out" | grep -qE '^[^:]+:13: bare <tag> outside backticks .*wrap it in backticks'; then
+  pass "invalid-angle.md -> bare <tag> outside backticks"
+else
+  bad "invalid-angle.md: expected a line-13 'bare <tag>' error and non-zero exit; rc=$rc out=$out"
+fi
+if out="$(bash "$lint" "$fx/valid-angle.md" 2>&1)" && [ -z "$out" ]; then
+  pass "valid-angle.md passes (backticks, fence, frontmatter, autolinks)"
+else
+  bad "valid-angle.md should pass; got: $out"
+fi
+
 # Trace collector tests.
 if bash "$root/tests/trace-test.sh" >/dev/null 2>&1; then
   pass "trace-test.sh passes"

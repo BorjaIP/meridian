@@ -52,6 +52,9 @@ Cross-project commands (`/mdn-daily`, `/mdn-status`) only require the config and
    - **Description:** one sentence (at most 120 characters) stating what and why.
    - **Acceptance:** the user's criteria; for agent tasks without any, write 1 to 3 short measurable criteria inferred from the title. Optional for `owner::me`.
    - **Slug:** 2 to 5 words, kebab-case, pattern `^[a-z0-9]+(-[a-z0-9]+)*$`. GREP `slug::<slug>` in the note; on collision append `-2`, `-3`.
+
+   **Text safety.** Before writing any title, description, acceptance, note or reason into a vault note or log, wrap every tag-like placeholder such as `<branch-name>`, `<name>` or `</x>` in backticks, unless it is already inside backticks. Obsidian reads a bare `<word>` as an unclosed HTML tag and stops rendering everything below it. Plain text like `a < b` needs no change. `mdn-log.sh` applies this rule to log text by itself; `mdn-lint.sh` reports any that slipped through.
+
 4. INSERT at the end of the `## Tasks` section (after the last task block, preceded by one blank line):
 
 ```markdown

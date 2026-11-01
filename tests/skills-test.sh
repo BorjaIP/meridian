@@ -87,6 +87,12 @@ has "$sk/mdn-status/SKILL.md" '/mdn-archive' && has "$sk/mdn-status/SKILL.md" 'a
 [ -f "$root/templates/Dashboard.md" ] && [ "$(grep -c '^```dataview' "$root/templates/Dashboard.md")" -eq 4 ] \
   && pass "Dashboard template has 4 dataview blocks" || bad "templates/Dashboard.md missing or not 4 dataview blocks"
 
+# Text safety: skills that write free text carry the backtick rule.
+for s in mdn-add mdn-run mdn-done mdn-init; do
+  has "$sk/$s/SKILL.md" 'Text safety' && has "$sk/$s/SKILL.md" 'backticks' \
+    && pass "$s: carries the Text safety rule" || bad "$s: missing 'Text safety' rule about backticks"
+done
+
 # TASK_HISTORY is gone from skills, README and docs (protocol.md may keep a labeled historical row).
 if grep -rl 'TASK_HISTORY' "$sk" "$root/README.md" "$root/docs" --exclude=protocol.md 2>/dev/null | grep -q .; then
   bad "TASK_HISTORY still referenced: $(grep -rl 'TASK_HISTORY' "$sk" "$root/README.md" "$root/docs" --exclude=protocol.md | tr '\n' ' ')"

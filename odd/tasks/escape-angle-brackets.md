@@ -1,0 +1,35 @@
+# escape-angle-brackets
+
+Branch: fix/escape-angle-brackets (worktree ../meridian-worktrees/fix-escape-angle-brackets, based on main)
+Meridian task: none (user request in the pkm session)
+Checks mode: shell scripts with tests (test-first, RED then GREEN) in temp dirs; skills are markdown (structure tests only); `bash tests/run.sh` is the runner.
+Delivery: standalone PR against main (4 commits). It was first built on top of the unpushed feat/generated-dashboard and then rebased onto main so the PR does not carry that feature. The uncommitted WIP in the main checkout (scripts/mdn-dashboard.sh, mdn-board.sh, mdn-skills-index.sh) is not touched.
+
+## Problem
+
+Obsidian's editor (Live Preview and Source mode) reads a bare `<word>` or `<some-name>` as an unclosed HTML tag and stops rendering Markdown below it (Reading view stays fine). A task Description written verbatim into `project.md` contained `<branch-name>` and `<name>`, so every task below it rendered broken and a `#task` typed after it was not highlighted as a tag. Verified on the real vault: wrapping the placeholders in backticks fixed it. Nothing in Meridian escapes free text, so the bug returns on any new task, note or log entry (and after a reinstall).
+
+## Specs
+
+- S1: Skills that write free text into vault notes (`mdn-add`, `mdn-run`, `mdn-done`, `mdn-init`) carry an explicit "Text safety" rule: before writing a title, description, acceptance, note, reason or project description, wrap every bare tag-like placeholder (`<word>`, `<word-with-hyphen>`, `</word>`) in backticks unless already inside backticks; never leave one bare. Say why (Obsidian reads it as an unclosed HTML tag and stops rendering everything below).
+- S2: `scripts/mdn-log.sh event` sanitizes its free-text argument with the same rule. It wraps each tag-like token (`</?name ...>`) found outside backtick spans in backticks, is idempotent, and leaves plain text alone (`a < b`, `<3`, autolinks such as `<https://x.y>`, text already in backticks).
+- S3: `scripts/mdn-lint.sh` reports an error for a tag-like placeholder outside inline code in the body of `project.md` (not in the frontmatter, not in fenced code blocks), naming the line and the fix. This is the safety net for text the skills write by hand, and for `mdn-archive` and `mdn-migrate`, which copy text verbatim.
+- S4: `docs/protocol.md` documents the rule in a "Text safety" section (what is rewritten, what is left alone, why).
+- S5: The installed copies of the changed skills and scripts are updated selectively from this branch (4 SKILL.md files, `mdn-log.sh`, `mdn-lint.sh`), with a backup; nothing else in `~/.claude/skills` or `~/.config/meridian` is touched.
+- Out of scope, on purpose: `mdn-board.sh` (already HTML-escapes `& < >`), `mdn-dashboard.sh` `render()` (bypassed by the user's WIP, and that file is being edited elsewhere), `mdn-trace.sh` (stdout only), `mdn-migrate.sh` and `mdn-archive` (verbatim copies; the lint covers them).
+
+## Tasks
+
+- [x] E1 (S2) failing tests first in tests/log-test.sh, then the sanitizer in mdn-log.sh | route: delegated writer | RED: log-test.sh 6 failing (idempotency passed trivially) -> GREEN: log-test.sh all tests passed; sanitizer is `safe_text` in mdn-log.sh
+- [x] E2 (S3) failing lint cases first in tests/run.sh, then the rule in mdn-lint.sh | route: delegated writer | RED: run.sh 1 failing (invalid-angle.md exit 0; valid-angle.md passed trivially) -> GREEN: both ok; fixtures tests/fixtures/{invalid,valid}-angle.md
+- [x] E3 (S1,S4) Text safety wording in the 4 skills + skills-test phrase checks + docs/protocol.md | route: delegated writer | RED: skills-test.sh 4 failing -> GREEN: skills-test.sh all skills tests passed; docs/protocol.md section 11
+- [x] E4 (S5) selective reinstall (dry-run first), then lint the real vault note and write a test log entry in a temp copy | route: inline | evidence: `install.sh --dry-run` first showed only the 4 edited skills (each backed up) and the scripts to change; real run from this worktree: 4 skills + 6 scripts installed, backups in ~/.config/meridian/retired-skills-20261011-1106; installed skills equal repo+model transform (7/7), installed scripts equal the worktree (6/6). Installed `mdn-lint.sh` on the real fixed vault note: exit 0, 0 errors; on the original broken copy: exit 1, error at line 46. Installed `mdn-log.sh` in a temp dir wrote `.worktree/`<branch-name>` and branch:`<name>``. NOT verified: how a model follows the new skill wording in a real run
+- [x] E5 full `bash tests/run.sh`, re-run by the parent; record evidence | route: inline | evidence: run.sh ends with `1 test(s) failed` = migrate-test `legacy files archived`, which also fails on a clean worktree of the base commit 3b78e97 (verified), so it is pre-existing and not touched; log-test and skills-test pass; adversarial log inputs (backslash, %s, $HOME, quotes, &, unbalanced backtick, autolinks, `a < b`, `<3`) produced the expected lines and one log line per event
+
+## Log
+
+- L1 (2026-10-11, user): "modifica las skills y las del proyecto de meridian tambien porque si se instala de nuevo pasaria lo mismo. Tambien revisa el que escribe el log porque ese bug puede pasar en ese archivo tambien".
+- L2: read-only map by an explorer: free text is written by SKILL.md instructions (mdn-add step 4, mdn-run 3.3/blocked note, mdn-done note/reopen, mdn-init description) and by `scripts/mdn-log.sh:55` (`line="$line · $*"`, raw). Only `mdn-board.sh` escapes (HTML) and `mdn-dashboard.sh` escapes `|`. The real vault has no unescaped tag left (project.md was fixed by hand; logs only have tags inside backticks).
+- L3: installed skills equal the repo HEAD after the installer's model-hint transform; installed `mdn-log.sh` and `mdn-lint.sh` equal the repo ones, so a selective update is safe. Running the whole installer could replace the installed `mdn-dashboard.sh`.
+- L4: parent review of the writer's work: `safe_text` passes the text through ENVIRON (no `awk -v` escape processing) and uses only match()/substr() loops; the lint rule sits after `fence { next }` with no `next`. Only gawk was available to test (mawk/busybox not run). Known: `tests/fixtures/dashboard.expected.md` contains bare tags, so it would fail the lint if linted (no test lints it). `mdn-dashboard.sh` `render()` and `mdn-board.sh` are untouched on purpose (user WIP in the main checkout).
+- L5: rebased the 4 commits onto origin/main (dropping the 8 unpushed dashboard commits they were stacked on). The skills commit conflicted in `docs/protocol.md` and `tests/skills-test.sh` only because its context included dashboard lines: kept just the Text safety additions, renumbered the protocol section to `## 10. Text safety` (main has no Dashboard section), and kept main's own lines. `bash tests/run.sh` fails the same single suite (`migrate-test.sh`) on a clean main worktree and on this branch; log-test and skills-test pass here. The installed copies were installed earlier from the stacked version, which differs from main only by the dashboard wiring.

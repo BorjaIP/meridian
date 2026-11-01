@@ -51,11 +51,13 @@ Cross-project commands (`/mdn-daily`, `/mdn-status`) only require the config and
 6. EDIT the checkbox `- [ ]` to `- [x]` and `status::<old>` to `status::done`.
 7. If the user gave a comment, INSERT `  **Note:** <comment>` as the last block of the task (after Trace). Otherwise add nothing.
 
+   **Text safety.** Before writing any title, description, acceptance, note or reason into a vault note or log, wrap every tag-like placeholder such as `<branch-name>`, `<name>` or `</x>` in backticks, unless it is already inside backticks. Obsidian reads a bare `<word>` as an unclosed HTML tag and stops rendering everything below it. Plain text like `a < b` needs no change. `mdn-log.sh` applies this rule to log text by itself; `mdn-lint.sh` reports any that slipped through.
+
 ### Reopen (`reopen:"reason"`)
 
 4. The task must be `owner::agent status::review`. Otherwise report its state and stop.
 5. EDIT `status::review` to `status::in-progress`; keep the checkbox `[ ]`, and keep the `**Run:**` and `**Trace:**` blocks unchanged so a later `/mdn-run task:<slug>` resumes with the original `started` and `base`.
-6. INSERT `  **Note:** Reopened: <reason>` as the last block of the task.
+6. INSERT `  **Note:** Reopened: <reason>` as the last block of the task. The **Text safety** rule in the accept flow above applies to the reason too.
 
 ### Finish
 
