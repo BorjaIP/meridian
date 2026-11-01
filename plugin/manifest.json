@@ -1,0 +1,9 @@
+{
+  "id": "meridian",
+  "name": "Meridian",
+  "version": "0.1.0",
+  "minAppVersion": "1.4.0",
+  "description": "A board for your Meridian projects and tasks. Reads the project.md notes of your vault; everything stays Markdown.",
+  "author": "BorjaIP",
+  "isDesktopOnly": false
+}
