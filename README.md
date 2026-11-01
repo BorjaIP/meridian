@@ -76,7 +76,7 @@ bash install.sh --source . --dry-run
 bash install.sh --source .
 ```
 
-Options: `--tool claude|codex|all`, `--source <dir>`, `--dry-run`. The installer is idempotent. It writes:
+Options: `--tool claude|codex|all`, `--source <dir>`, `--obsidian [<vault>]`, `--dry-run`. The installer is idempotent. It writes:
 
 | What | Where |
 |---|---|
@@ -87,6 +87,16 @@ Options: `--tool claude|codex|all`, `--source <dir>`, `--dry-run`. The installer
 Skills from older Meridian versions that no longer exist are moved (not deleted) to `~/.config/meridian/retired-skills-<date>/`, together with a backup of any installed skill it overwrites.
 
 Open a new Claude Code session after installing or updating: a running session keeps the skill text it loaded at the time (observed while testing this repository).
+
+## Obsidian board plugin
+
+An optional Obsidian plugin shows every project and task as a board: totals, tasks by status with expandable details, project progress, the review queue and recent activity. It is read-only and reads the `project.md` notes of your vault; nothing leaves Markdown.
+
+```bash
+bash install.sh --source . --obsidian /path/to/vault   # or --obsidian alone to use `vault:` from the config
+```
+
+This copies `manifest.json`, `main.js` and `styles.css` from `plugin/` to `<vault>/.obsidian/plugins/meridian/`. It does not enable the plugin: reload Obsidian, then turn on **Meridian** under Settings > Community plugins (restricted mode must be off). Open the board from the ribbon icon or the command "Meridian: Open board". Settings: the Meridian folder (default `meridian`) and an optional name for the greeting.
 
 ## Quick start
 

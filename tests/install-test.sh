@@ -110,4 +110,25 @@ run_install "$h" --tool nope
 run_install "$h" --source "$work/does-not-exist"
 [ "$rc" -ne 0 ] && pass "missing source fails" || bad "missing source accepted"
 
+# 8. Obsidian plugin (--obsidian).
+h="$(newhome)"; run_install "$h"
+[ ! -e "$h/.obsidian" ] && pass "plain install installs no plugin" || bad "plain install touched an Obsidian folder"
+v="$work/vault"; mkdir -p "$v/.obsidian"
+h="$(newhome)"; run_install "$h" --obsidian "$v"
+ok=1; for f in manifest.json main.js styles.css; do [ -s "$v/.obsidian/plugins/meridian/$f" ] || ok=0; done
+[ "$rc" -eq 0 ] && [ "$ok" -eq 1 ] && pass "--obsidian <vault> installs the plugin files" || bad "--obsidian <vault> wrong (rc=$rc): $out"
+cmp -s "$root/plugin/main.js" "$v/.obsidian/plugins/meridian/main.js" && pass "installed main.js matches the checkout" || bad "installed main.js differs"
+[ ! -e "$v/.obsidian/community-plugins.json" ] && pass "plugin is not enabled behind your back" || bad "community-plugins.json was written"
+h="$(newhome)"; mkdir -p "$h/.config/meridian"
+v2="$work/vault2"; mkdir -p "$v2/.obsidian"; printf -- '---\nvault: %s\n---\n' "$v2" > "$h/.config/meridian/config.md"
+run_install "$h" --obsidian
+[ "$rc" -eq 0 ] && [ -s "$v2/.obsidian/plugins/meridian/manifest.json" ] && pass "--obsidian without a path uses the config vault" || bad "--obsidian from config wrong (rc=$rc): $out"
+h="$(newhome)"; run_install "$h" --obsidian "$work/not-a-vault"
+[ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q "not an Obsidian vault" && pass "--obsidian refuses a folder without .obsidian" || bad "--obsidian accepted a non-vault"
+h="$(newhome)"; run_install "$h" --obsidian
+[ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q "needs a vault path" && pass "--obsidian without any vault fails clearly" || bad "--obsidian without vault wrong (rc=$rc)"
+v3="$work/vault3"; mkdir -p "$v3/.obsidian"
+h="$(newhome)"; run_install "$h" --obsidian "$v3" --dry-run
+[ ! -e "$v3/.obsidian/plugins" ] && pass "--obsidian --dry-run writes nothing" || bad "--obsidian --dry-run wrote files"
+
 if [ "$fail" -eq 0 ]; then echo "all install tests passed"; else echo "$fail install test(s) failed"; exit 1; fi
