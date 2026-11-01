@@ -58,7 +58,7 @@ A task is a checkbox line followed by indented blocks.
 - [ ] #task owner::agent status::review priority::high type::fix slug::fix-login
 ```
 
-Fields use `key::value` syntax (Dataview-compatible). Order is not significant. All five are required.
+Fields use `key::value` syntax. Order is not significant. All five are required.
 
 | Field | Values | Notes |
 |---|---|---|

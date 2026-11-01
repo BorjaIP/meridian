@@ -2,10 +2,10 @@
 name: mdn-status
 model: low
 description: >
-  Meridian dashboard skill. Read-only. Prints task counts by status and owner for every
+  Meridian status skill. Read-only. Prints task counts by status and owner for every
   active project plus a total, and flags in-progress tasks whose run started more than 24
   hours ago as possibly stale. Use when the user says "show project status", "what's the
-  state of my projects", "meridian dashboard", or runs `/mdn-status`.
+  state of my projects", or runs `/mdn-status`.
 ---
 
 ## Invocation

@@ -66,4 +66,4 @@ For every `done` task runs `mdn-log.sh archive`, which moves the block verbatim 
 
 ## Logs and digest
 
-`/mdn-add`, `/mdn-run`, `/mdn-done` and `/mdn-init` append one-line lifecycle events through `mdn-log.sh`; a missing or failing script only prints a warning. `/mdn-daily` and `/mdn-status` build their report from `mdn-index.sh` output instead of reading whole notes and never read `logs/`; `/mdn-status` suggests `/mdn-archive` past about 20 done tasks. The board is the Obsidian plugin (see the README); no command writes a dashboard file.
+`/mdn-add`, `/mdn-run`, `/mdn-done` and `/mdn-init` append one-line lifecycle events through `mdn-log.sh`; a missing or failing script only prints a warning. `/mdn-daily` and `/mdn-status` build their report from `mdn-index.sh` output instead of reading whole notes and never read `logs/`; `/mdn-status` suggests `/mdn-archive` past about 20 done tasks.

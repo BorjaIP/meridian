@@ -39,7 +39,7 @@ Project frontmatter: `title`, `project` (slug), `status` (`active|paused|done|ar
 | `~/.claude/skills/mdn-*/SKILL.md` | The seven skills (Claude Code). |
 | `~/.codex/skills/mdn-*/SKILL.md` | The same skills, when installed with `--tool codex` or `all`. |
 | `~/.config/meridian/scripts/` | `mdn-lint.sh`, `mdn-trace.sh`, `mdn-migrate.sh`, `mdn-log.sh`, `mdn-index.sh` (executable). |
-| `~/.config/meridian/templates/Project.md` | Template used by `/mdn-init`. Stale `Plan.md`, `Task.md` and `Dashboard.md` are moved to `retired-skills-<timestamp>/templates/` by the installer. |
+| `~/.config/meridian/templates/Project.md` | Template used by `/mdn-init`. Stale `Plan.md` and `Task.md` are moved to `retired-skills-<timestamp>/templates/` by the installer. |
 | `~/.config/meridian/retired-skills-<date>/` | Only when needed: skills from older versions and backups of overwritten skills. |
 
 Skills look for helper scripts in `~/.config/meridian/scripts/` first, then in the `scripts/` folder of the Meridian repository, and skip the check (saying so) if neither exists.

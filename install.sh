@@ -172,8 +172,8 @@ for f in "${SRC}"/templates/*.md; do
   echo "  + $(basename "$f")"
 done
 
-# Templates of retired formats (plan/task, Dataview dashboard): move aside, never delete.
-for t in Plan.md Task.md Dashboard.md; do
+# Templates of the retired plan/task format: move aside, never delete.
+for t in Plan.md Task.md; do
   if [[ -f "${CONFIG_DIR}/templates/${t}" && ! -f "${SRC}/templates/${t}" ]]; then
     ensure_retired_dir
     act mkdir -p "${RETIRED_DIR}/templates"
