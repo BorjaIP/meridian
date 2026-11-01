@@ -153,6 +153,29 @@ function ago(s, now) {
   return Math.round(mins / 1440) + "d ago";
 }
 
+// Splits free text into plain and inline-code parts. Meridian wraps tag-like text in backticks,
+// so the board shows those parts as code instead of printing the backticks.
+function splitCode(text) {
+  const parts = [];
+  const re = /`([^`\n]+)`/g;
+  let last = 0;
+  let m;
+  while ((m = re.exec(text))) {
+    if (m.index > last) parts.push({ text: text.slice(last, m.index) });
+    parts.push({ text: m[1], code: true });
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) parts.push({ text: text.slice(last) });
+  return parts;
+}
+
+function richText(el, text) {
+  for (const p of splitCode(text)) {
+    if (p.code) el.createEl("code", { text: p.text });
+    else el.appendText(p.text);
+  }
+}
+
 function hue(slug) {
   let h = 0;
   for (const c of slug) h = (h * 31 + c.charCodeAt(0)) % 360;
@@ -350,7 +373,7 @@ class BoardView extends ItemView {
     const row = parent.createDiv({ cls: "mdn-row" + (this.expanded.has(key) ? " is-open" : "") });
     const line = row.createDiv({ cls: "mdn-row-line" });
     line.createSpan({ cls: "mdn-status is-" + t.status });
-    line.createSpan({ cls: "mdn-title", text: t.title });
+    richText(line.createSpan({ cls: "mdn-title" }), t.title);
     if (t.type) line.createSpan({ cls: "mdn-chip", text: t.type });
     if (t.owner === "me") line.createSpan({ cls: "mdn-chip is-me", text: "me" });
     const meta = line.createDiv({ cls: "mdn-meta" });
@@ -373,7 +396,7 @@ class BoardView extends ItemView {
       if (!text) return;
       const f = d.createDiv({ cls: "mdn-field" });
       f.createDiv({ cls: "mdn-field-label", text: label });
-      f.createDiv({ cls: "mdn-field-text", text });
+      richText(f.createDiv({ cls: "mdn-field-text" }), text);
     };
     field("Description", t.description);
     field("Acceptance", t.acceptance);
@@ -434,7 +457,7 @@ class BoardView extends ItemView {
     for (const t of rows.slice(0, 8)) {
       const r = list.createDiv({ cls: "mdn-side-row" });
       r.createSpan({ cls: "mdn-dot", attr: { style: "background:hsl(" + hue(t.project) + " 60% 55%)" } });
-      r.createSpan({ cls: "mdn-side-title", text: t.title });
+      richText(r.createSpan({ cls: "mdn-side-title" }), t.title);
       r.createSpan({ cls: "mdn-when", text: ago(t.run.ended, new Date()) });
       r.onclick = async () => {
         const file = this.app.vault.getAbstractFileByPath(t.path);
@@ -459,7 +482,7 @@ class BoardView extends ItemView {
       const r = list.createDiv({ cls: "mdn-side-row is-activity" });
       const text = r.createDiv({ cls: "mdn-side-title" });
       text.createSpan({ cls: "mdn-verb", text: "Agent " + e.verb + " " });
-      text.createSpan({ text: e.t.title });
+      richText(text.createSpan(), e.t.title);
       r.createSpan({ cls: "mdn-when", text: ago(e.at, now) });
     }
   }
@@ -495,4 +518,4 @@ class MeridianSettings extends PluginSettingTab {
 }
 
 module.exports = MeridianPlugin;
-Object.assign(module.exports, { default: MeridianPlugin, parseProject, summarize, filterTasks, sortTasks, ago });
+Object.assign(module.exports, { default: MeridianPlugin, parseProject, summarize, filterTasks, sortTasks, ago, splitCode });

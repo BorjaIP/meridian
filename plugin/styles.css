@@ -94,3 +94,5 @@
   .mdn-page { padding: 20px 16px 40px; }
   .mdn-meta .mdn-proj { display: none; }
 }
+
+.mdn-root code { font-size: 0.9em; padding: 0 4px; border-radius: 4px; background: var(--background-secondary); color: var(--text-normal); }

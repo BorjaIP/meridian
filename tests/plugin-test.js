@@ -4,7 +4,7 @@
 const assert = require("assert");
 const fs = require("fs");
 const path = require("path");
-const { parseProject, summarize, filterTasks } = require("../plugin/main.js");
+const { parseProject, summarize, filterTasks, splitCode } = require("../plugin/main.js");
 
 const fx = path.join(__dirname, "fixtures");
 let n = 0;
@@ -65,6 +65,19 @@ t("filterTasks by owner, project and query", () => {
   assert.strictEqual(filterTasks(all, { owner: "all", project: "other", query: "" }).length, 0);
   const q = filterTasks(all, { owner: "all", project: "all", query: "SYNC ENGINE" });
   assert.ok(q.length >= 1 && q.every((x) => /sync engine/i.test(x.title + x.slug)));
+});
+
+t("splitCode separates inline code from plain text", () => {
+  assert.deepStrictEqual(splitCode("run `<branch-name>` now"), [
+    { text: "run " }, { text: "<branch-name>", code: true }, { text: " now" },
+  ]);
+  assert.deepStrictEqual(splitCode("no code here"), [{ text: "no code here" }]);
+  assert.deepStrictEqual(splitCode("`a` and `b`").filter((x) => x.code).map((x) => x.text), ["a", "b"]);
+});
+
+t("splitCode leaves an unmatched backtick as plain text", () => {
+  assert.deepStrictEqual(splitCode("odd ` tick"), [{ text: "odd ` tick" }]);
+  assert.deepStrictEqual(splitCode(""), []);
 });
 
 console.log("plugin tests passed (" + n + ")");
