@@ -96,3 +96,8 @@
 }
 
 .mdn-root code { font-size: 0.9em; padding: 0 4px; border-radius: 4px; background: var(--background-secondary); color: var(--text-normal); }
+
+.mdn-add { display: inline-flex; align-items: center; gap: 6px; }
+.mdn-add svg { width: 14px; height: 14px; }
+.mdn-modal-hint { color: var(--text-muted); margin-bottom: 12px; font-size: var(--font-ui-small); }
+.mdn-modal-error { color: var(--color-red); min-height: 1.4em; margin-top: 8px; }
