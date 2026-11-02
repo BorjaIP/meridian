@@ -4,7 +4,9 @@
 const assert = require("assert");
 const fs = require("fs");
 const path = require("path");
-const { parseProject, summarize, filterTasks, splitCode } = require("../plugin/main.js");
+const { parseProject, summarize, filterTasks, splitCode, slugify, uniqueSlug, safeText, buildTaskBlock, addTask } = require("../plugin/main.js");
+const { execFileSync, spawnSync } = require("child_process");
+const os = require("os");
 
 const fx = path.join(__dirname, "fixtures");
 let n = 0;
@@ -78,6 +80,91 @@ t("splitCode separates inline code from plain text", () => {
 t("splitCode leaves an unmatched backtick as plain text", () => {
   assert.deepStrictEqual(splitCode("odd ` tick"), [{ text: "odd ` tick" }]);
   assert.deepStrictEqual(splitCode(""), []);
+});
+
+// ---- adding a personal task
+
+t("slugify makes a short kebab-case slug", () => {
+  assert.strictEqual(slugify("Fix the Café login!"), "fix-the-cafe-login");
+  assert.strictEqual(slugify("one two three four five six seven"), "one-two-three-four-five");
+  assert.strictEqual(slugify("¿¡!?"), "task");
+});
+
+t("uniqueSlug appends -2, -3 on collision", () => {
+  assert.strictEqual(uniqueSlug("a-b", new Set()), "a-b");
+  assert.strictEqual(uniqueSlug("a-b", new Set(["a-b"])), "a-b-2");
+  assert.strictEqual(uniqueSlug("a-b", new Set(["a-b", "a-b-2"])), "a-b-3");
+});
+
+t("safeText wraps tag-like text and leaves the rest alone", () => {
+  assert.strictEqual(safeText("use <branch-name> here"), "use `<branch-name>` here");
+  assert.strictEqual(safeText("close </div> now"), "close `</div>` now");
+  assert.strictEqual(safeText("already `<x>` ok"), "already `<x>` ok");
+  assert.strictEqual(safeText("a < b and x <3"), "a < b and x <3");
+  assert.strictEqual(safeText("see <https://example.com>"), "see <https://example.com>");
+});
+
+t("buildTaskBlock writes the exact protocol lines for a personal task", () => {
+  const b = buildTaskBlock({ title: "Call the bank", description: "About the card", priority: "high", type: "chore", slug: "call-the-bank" });
+  assert.strictEqual(
+    b,
+    "- [ ] #task owner::me status::backlog priority::high type::chore slug::call-the-bank\n" +
+      "  **Title:** Call the bank\n  **Description:** About the card"
+  );
+});
+
+t("buildTaskBlock sanitizes: one line, 80 chars, valid enums, safe text", () => {
+  const b = buildTaskBlock({ title: "x".repeat(100) + "\nsecond", description: "", priority: "urgent", type: "weird", slug: "x" });
+  const [head, title] = b.split("\n");
+  assert.match(head, /priority::medium type::chore /);
+  assert.strictEqual(title, "  **Title:** " + "x".repeat(80));
+  assert.ok(!/Description/.test(b), "empty description is omitted");
+  assert.match(buildTaskBlock({ title: "Fix <name>", slug: "f" }), /\*\*Title:\*\* Fix `<name>`/);
+});
+
+const base = fs.readFileSync(path.join(fx, "plugin/project.md"), "utf8");
+
+t("addTask appends at the end of ## Tasks and round-trips through parseProject", () => {
+  const before = parseProject(base, "atlas", "p");
+  const r = addTask(base, { title: "Renew passport", description: "Before March", priority: "high", type: "chore" });
+  assert.strictEqual(r.slug, "renew-passport");
+  assert.ok(r.text.startsWith(base.replace(/\s+$/, "")), "existing text is untouched");
+  const after = parseProject(r.text, "atlas", "p");
+  assert.strictEqual(after.tasks.length, before.tasks.length + 1);
+  const n = after.tasks[after.tasks.length - 1];
+  assert.deepStrictEqual([n.owner, n.status, n.priority, n.type, n.title, n.description, n.checked],
+    ["me", "backlog", "high", "chore", "Renew passport", "Before March", false]);
+});
+
+t("addTask avoids slug collisions and inserts before a following section", () => {
+  const text = "---\nproject: p\n---\n# P\n\n## Tasks\n\n- [ ] #task owner::me status::backlog priority::low type::chore slug::buy-milk\n  **Title:** Buy milk\n\n## Notes\n\nhello\n";
+  const r = addTask(text, { title: "Buy milk" });
+  assert.strictEqual(r.slug, "buy-milk-2");
+  assert.ok(r.text.indexOf("slug::buy-milk-2") < r.text.indexOf("## Notes"));
+  assert.ok(r.text.endsWith("## Notes\n\nhello\n"));
+});
+
+t("addTask creates the ## Tasks section when it is missing", () => {
+  const r = addTask("---\nproject: p\n---\n# P\n", { title: "First thing" });
+  assert.match(r.text, /\n## Tasks\n\n- \[ \] #task owner::me /);
+  assert.strictEqual(parseProject(r.text, "p", "p").tasks.length, 1);
+});
+
+t("addTask rejects an empty title", () => {
+  assert.throws(() => addTask(base, { title: "   " }), /title/i);
+});
+
+t("the written note passes mdn-lint.sh", () => {
+  const lint = path.join(__dirname, "../scripts/mdn-lint.sh");
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "mdn-plugin-"));
+  const f = path.join(tmp, "project.md");
+  const doc = "---\ntitle: P\nproject: p\nstatus: active\nrepo: /x\ntags:\n  - project\n---\n# P\n\n> one line\n\n---\n\n## Tasks\n";
+  const r = addTask(addTask(doc, { title: "First thing", priority: "low" }).text, { title: "Use <branch-name> now", description: "With <x>" });
+  fs.writeFileSync(f, r.text);
+  const out = spawnSync("bash", [lint, f], { encoding: "utf8" });
+  assert.strictEqual(out.status, 0, out.stdout + out.stderr);
+  assert.strictEqual((out.stdout + out.stderr).trim(), "");
+  fs.rmSync(tmp, { recursive: true });
 });
 
 console.log("plugin tests passed (" + n + ")");

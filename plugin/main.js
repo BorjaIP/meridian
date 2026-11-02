@@ -5,9 +5,9 @@ try {
   obsidian = require("obsidian");
 } catch (e) {
   // Outside Obsidian (unit tests) only the pure functions are used.
-  obsidian = { Plugin: class {}, ItemView: class {}, PluginSettingTab: class {}, Setting: class {}, Notice: class {}, addIcon() {}, setIcon() {} };
+  obsidian = { Plugin: class {}, ItemView: class {}, PluginSettingTab: class {}, Setting: class {}, Notice: class {}, Modal: class {}, addIcon() {}, setIcon() {} };
 }
-const { Plugin, ItemView, PluginSettingTab, Setting, addIcon, setIcon } = obsidian;
+const { Plugin, ItemView, PluginSettingTab, Setting, Modal, Notice, addIcon, setIcon } = obsidian;
 
 const VIEW_TYPE = "meridian-board";
 const ICON_ID = "meridian";
@@ -182,6 +182,75 @@ function hue(slug) {
   return h;
 }
 
+// ---------------------------------------------------------------- adding a personal task
+
+const PRIORITIES = ["high", "medium", "low"];
+const TYPES = ["feature", "fix", "research", "chore"];
+const TAG_LIKE = /<\/?[A-Za-z][A-Za-z0-9._:-]*(?:\s[^<>`]*)?\/?>/g;
+
+// Same rule as the skills and mdn-log.sh: a bare tag-like token breaks Obsidian's rendering,
+// so it is wrapped in backticks unless it is already inside inline code.
+function safeText(text) {
+  return text
+    .split(/(`[^`]*`)/)
+    .map((part, i) => (i % 2 ? part : part.replace(TAG_LIKE, (m) => "`" + m + "`")))
+    .join("");
+}
+
+function slugify(title) {
+  const words = title
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+    .slice(0, 5);
+  return words.join("-") || "task";
+}
+
+function uniqueSlug(base, taken) {
+  let slug = base;
+  for (let n = 2; taken.has(slug); n++) slug = base + "-" + n;
+  return slug;
+}
+
+const oneLine = (text, max) => String(text || "").replace(/\s+/g, " ").trim().slice(0, max);
+
+// The protocol lines of a task owned by the human (always backlog, unchecked).
+function buildTaskBlock(t) {
+  const title = oneLine(t.title, 80);
+  if (!title) throw new Error("A task needs a title");
+  const priority = PRIORITIES.includes(t.priority) ? t.priority : "medium";
+  const type = TYPES.includes(t.type) ? t.type : "chore";
+  const lines = [
+    "- [ ] #task owner::me status::backlog priority::" + priority + " type::" + type + " slug::" + t.slug,
+    "  **Title:** " + safeText(title),
+  ];
+  const description = oneLine(t.description, 500);
+  if (description) lines.push("  **Description:** " + safeText(description));
+  return lines.join("\n");
+}
+
+// Returns the project note text with the new task at the end of `## Tasks`, plus its slug.
+function addTask(text, input) {
+  const eol = text.includes("\r\n") ? "\r\n" : "\n";
+  const taken = new Set([...text.matchAll(/slug::(\S+)/g)].map((m) => m[1]));
+  const slug = uniqueSlug(slugify(input.title), taken);
+  const block = buildTaskBlock(Object.assign({}, input, { slug })).split("\n");
+  const lines = text.split(/\r?\n/);
+  const head = lines.findIndex((l) => /^## Tasks\s*$/.test(l));
+  if (head < 0) {
+    const body = text.replace(/\s+$/, "");
+    return { slug, text: body + eol + eol + "## Tasks" + eol + eol + block.join(eol) + eol };
+  }
+  let end = lines.findIndex((l, i) => i > head && /^## /.test(l));
+  if (end < 0) end = lines.length;
+  let last = head;
+  for (let i = head + 1; i < end; i++) if (lines[i].trim()) last = i;
+  lines.splice(last + 1, 0, "", ...block);
+  return { slug, text: lines.join(eol) };
+}
+
 // ---------------------------------------------------------------- plugin
 
 class MeridianPlugin extends Plugin {
@@ -327,9 +396,37 @@ class BoardView extends ItemView {
     const input = search.createEl("input", { type: "search", placeholder: "Search tasks…" });
     input.value = this.query;
     input.oninput = () => { this.query = input.value; this.render(); };
+    const add = right.createEl("button", { cls: "mod-cta mdn-add" });
+    setIcon(add.createSpan(), "plus");
+    add.createSpan({ text: "Add task" });
+    add.onclick = () => this.addTask();
     const refresh = right.createEl("button", { cls: "mdn-icon-btn", attr: { "aria-label": "Refresh" } });
     setIcon(refresh, "refresh-cw");
     refresh.onclick = () => this.refresh();
+  }
+
+  addTask() {
+    if (!this.projects.length) {
+      new Notice("No Meridian project found under “" + this.plugin.settings.root + "/”.");
+      return;
+    }
+    const current = this.plugin.settings.project;
+    const start = this.projects.find((p) => p.slug === current) || this.projects.find((p) => p.status === "active") || this.projects[0];
+    new AddTaskModal(this.app, this.projects, start.slug, async (input) => {
+      const file = this.app.vault.getAbstractFileByPath(input.project.path);
+      if (!file) throw new Error("Project note not found: " + input.project.path);
+      let slug = "";
+      await this.app.vault.process(file, (data) => {
+        const r = addTask(data, input);
+        slug = r.slug;
+        return r.text;
+      });
+      // Show it right away: it is a task of yours, in the backlog of that project.
+      Object.assign(this.plugin.settings, { owner: "me", tab: "backlog", project: input.project.slug });
+      await this.plugin.saveSettings();
+      new Notice("Task added: " + slug);
+      await this.refresh();
+    }).open();
   }
 
   statCards(parent, stats) {
@@ -488,6 +585,72 @@ class BoardView extends ItemView {
   }
 }
 
+// ---------------------------------------------------------------- add-task modal
+
+class AddTaskModal extends Modal {
+  constructor(app, projects, startSlug, onSubmit) {
+    super(app);
+    this.projects = projects;
+    this.onSubmit = onSubmit;
+    this.values = { title: "", description: "", project: startSlug, priority: "medium", type: "chore" };
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.addClass("mdn-modal");
+    contentEl.createEl("h2", { text: "Add a task for yourself" });
+    contentEl.createDiv({ cls: "mdn-modal-hint", text: "It is written to the project note as your own backlog task. No AI involved." });
+
+    new Setting(contentEl).setName("Title").addText((t) => {
+      t.setPlaceholder("What do you need to do?").onChange((v) => (this.values.title = v));
+      t.inputEl.maxLength = 80;
+      t.inputEl.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); this.submit(); } });
+      setTimeout(() => t.inputEl.focus(), 0);
+    });
+    new Setting(contentEl).setName("Description").setDesc("Optional.").addTextArea((t) => {
+      t.onChange((v) => (this.values.description = v));
+      t.inputEl.rows = 3;
+    });
+    new Setting(contentEl).setName("Project").addDropdown((d) => {
+      for (const p of this.projects) d.addOption(p.slug, p.name);
+      d.setValue(this.values.project).onChange((v) => (this.values.project = v));
+    });
+    new Setting(contentEl).setName("Priority").addDropdown((d) => {
+      for (const v of PRIORITIES) d.addOption(v, v);
+      d.setValue(this.values.priority).onChange((v) => (this.values.priority = v));
+    });
+    new Setting(contentEl).setName("Type").addDropdown((d) => {
+      for (const v of TYPES) d.addOption(v, v);
+      d.setValue(this.values.type).onChange((v) => (this.values.type = v));
+    });
+
+    this.error = contentEl.createDiv({ cls: "mdn-modal-error" });
+    const row = contentEl.createDiv({ cls: "modal-button-container" });
+    const ok = row.createEl("button", { cls: "mod-cta", text: "Add task" });
+    ok.onclick = () => this.submit();
+    row.createEl("button", { text: "Cancel" }).onclick = () => this.close();
+  }
+
+  async submit() {
+    const title = this.values.title.trim();
+    if (!title) {
+      this.error.setText("Write a title first.");
+      return;
+    }
+    const project = this.projects.find((p) => p.slug === this.values.project);
+    try {
+      await this.onSubmit(Object.assign({}, this.values, { title, project }));
+      this.close();
+    } catch (e) {
+      this.error.setText(String(e && e.message ? e.message : e));
+    }
+  }
+
+  onClose() {
+    this.contentEl.empty();
+  }
+}
+
 // ---------------------------------------------------------------- settings
 
 class MeridianSettings extends PluginSettingTab {
@@ -518,4 +681,4 @@ class MeridianSettings extends PluginSettingTab {
 }
 
 module.exports = MeridianPlugin;
-Object.assign(module.exports, { default: MeridianPlugin, parseProject, summarize, filterTasks, sortTasks, ago, splitCode });
+Object.assign(module.exports, { default: MeridianPlugin, parseProject, summarize, filterTasks, sortTasks, ago, splitCode, slugify, uniqueSlug, safeText, buildTaskBlock, addTask });

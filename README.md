@@ -89,7 +89,7 @@ Open a new Claude Code session after installing or updating: a running session k
 
 ## Obsidian board plugin
 
-An optional Obsidian plugin shows every project and task as a board: totals, tasks by status with expandable details, project progress, the review queue and recent activity. It is read-only and reads the `project.md` notes of your vault; nothing leaves Markdown.
+An optional Obsidian plugin shows every project and task as a board: totals, tasks by status with expandable details, project progress, the review queue and recent activity. It reads the `project.md` notes of your vault; nothing leaves Markdown. The **Add task** button is the only thing it writes: it adds a task of your own (`owner::me`, `status::backlog`) to the end of the chosen project's `## Tasks`, with no AI involved. Agent work still goes through `/mdn-run`.
 
 ```bash
 bash install.sh --source . --obsidian /path/to/vault   # or --obsidian alone to use `vault:` from the config
