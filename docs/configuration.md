@@ -38,9 +38,12 @@ Project frontmatter: `title`, `project` (slug), `status` (`active|paused|done|ar
 |---|---|
 | `~/.claude/skills/mdn-*/SKILL.md` | The seven skills (Claude Code). |
 | `~/.codex/skills/mdn-*/SKILL.md` | The same skills, when installed with `--tool codex` or `all`. |
+| `$PI_CODING_AGENT_DIR/skills/mdn-*/SKILL.md` (default `~/.pi/agent/skills/`) | The same skills, when installed with `--tool pi`. Invoke them as `/skill:mdn-run`. |
+| `$HERMES_HOME/skills/mdn-*/SKILL.md` (default `~/.hermes/skills/`) | The same skills, when installed with `--tool hermes`. |
 | `~/.config/meridian/scripts/` | `mdn-lint.sh`, `mdn-trace.sh`, `mdn-migrate.sh`, `mdn-log.sh`, `mdn-index.sh` (executable). |
 | `~/.config/meridian/templates/Project.md` | Template used by `/mdn-init`. Stale `Plan.md` and `Task.md` are moved to `retired-skills-<timestamp>/templates/` by the installer. |
 | `~/.config/meridian/retired-skills-<date>/` | Only when needed: skills from older versions and backups of overwritten skills. |
+| `<vault>/.obsidian/plugins/meridian/` | The board plugin (`manifest.json`, `main.js`, `styles.css`), when `vault:` points at a folder that contains `.obsidian`. |
 
 Skills look for helper scripts in `~/.config/meridian/scripts/` first, then in the `scripts/` folder of the Meridian repository, and skip the check (saying so) if neither exists.
 
@@ -54,11 +57,11 @@ MERIDIAN_CODEX_LOW=<model> MERIDIAN_CODEX_MEDIUM=<model> \
   bash install.sh --source .
 ```
 
-The Codex defaults are not verified against current Codex model names; set them to what your account offers. Whether a tool honors the hint is up to the tool.
+The Codex defaults are not verified against current Codex model names; set them to what your account offers. Whether a tool honors the hint is up to the tool. Pi and Hermes have no such hint, so the installer removes the `model:` line from the skills it writes there.
 
 ## Installer options
 
-`--tool claude|codex|all` (default `claude`), `--source <dir>` (install from a local checkout, no network), `--dry-run` (print actions, change nothing). The installer is idempotent: a second run changes nothing.
+`--tool claude|codex|pi|hermes|all` (default `claude`; `all` installs Claude Code and Codex only), `--source <dir>` (install from a local checkout, no network), `--obsidian [<vault>]` (install the board plugin into that vault; without it, the installer uses `vault:` from the config when that folder contains `.obsidian`), `--dry-run` (print actions, change nothing). The installer is idempotent: a second run changes nothing. It does not enable the plugin and does not touch `data.json`.
 
 ## Migrating from the old format
 

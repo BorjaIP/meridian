@@ -4,14 +4,15 @@
 #
 # Usage:
 #   bash <(curl -fsSL https://raw.githubusercontent.com/BorjaIP/meridian/main/install.sh)
-#   bash install.sh [--tool claude|codex|all] [--source <dir>] [--obsidian [<vault>]] [--dry-run]
+#   bash install.sh [--tool claude|codex|pi|hermes|all] [--source <dir>] [--obsidian [<vault>]] [--dry-run]
 #
 # Options:
-#   --tool <t>     claude (default), codex or all
+#   --tool <t>     claude (default), codex, pi, hermes or all (all = claude and codex)
 #   --source <dir> install from a local checkout; no network is used
-#   --obsidian [v] also install the Obsidian board plugin into <v>/.obsidian/plugins/meridian
-#                  (<v> defaults to `vault:` in the Meridian config); enable it in
-#                  Obsidian under Settings > Community plugins
+#   --obsidian [v] install the Obsidian board plugin into <v>/.obsidian/plugins/meridian
+#                  (<v> defaults to `vault:` in the Meridian config). A normal install
+#                  does the same when that vault already contains a .obsidian folder.
+#                  Enable it in Obsidian under Settings > Community plugins
 #   --dry-run      print what would happen, change nothing
 #
 # Environment (optional model names written into the `model:` frontmatter hints):
@@ -26,7 +27,7 @@ OBSIDIAN=0
 OBSIDIAN_VAULT=""
 DRY=0
 
-usage() { echo "Usage: $0 [--tool claude|codex|all] [--source <dir>] [--obsidian [<vault>]] [--dry-run]"; }
+usage() { echo "Usage: $0 [--tool claude|codex|pi|hermes|all] [--source <dir>] [--obsidian [<vault>]] [--dry-run]"; }
 die()   { echo "error: $*" >&2; exit 1; }
 
 while [[ $# -gt 0 ]]; do
@@ -43,8 +44,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$TOOL" in
-  claude|codex|all) ;;
-  *) die "unknown tool: $TOOL (valid: claude, codex, all)" ;;
+  claude|codex|pi|hermes|all) ;;
+  *) die "unknown tool: $TOOL (valid: claude, codex, pi, hermes, all)" ;;
 esac
 
 # Model hints: skills carry `model: low|medium`; map them per tool.
@@ -117,6 +118,8 @@ install_for() {
   case "$tool" in
     claude) skills_dst="${HOME}/.claude/skills" ;;
     codex)  skills_dst="${HOME}/.codex/skills" ;;
+    pi)     skills_dst="${PI_CODING_AGENT_DIR:-${HOME}/.pi/agent}/skills" ;;
+    hermes) skills_dst="${HERMES_HOME:-${HOME}/.hermes}/skills" ;;
   esac
 
   echo "Installing skills for ${tool} -> ${skills_dst}"
@@ -127,10 +130,14 @@ install_for() {
     name="$(basename "$skill_dir")"
     dst="${skills_dst}/${name}"
     tmp="${SCRATCH}/${tool}-${name}.md"
-    sed \
-      -e "s/^model: low$/model: ${model_low}/" \
-      -e "s/^model: medium$/model: ${model_medium}/" \
-      "${skill_dir}SKILL.md" > "$tmp"
+    if [[ "$tool" == pi || "$tool" == hermes ]]; then
+      sed -e '1,/^---$/{' -e '/^model: /d' -e '}' "${skill_dir}SKILL.md" > "$tmp"
+    else
+      sed \
+        -e "s/^model: low$/model: ${model_low}/" \
+        -e "s/^model: medium$/model: ${model_medium}/" \
+        "${skill_dir}SKILL.md" > "$tmp"
+    fi
 
     if [[ -f "${dst}/SKILL.md" ]] && cmp -s "$tmp" "${dst}/SKILL.md"; then
       echo "  = ${name} (unchanged)"
@@ -150,6 +157,8 @@ install_for() {
 case "$TOOL" in
   claude) install_for claude "$claude_low" "$claude_medium" ;;
   codex)  install_for codex  "$codex_low"  "$codex_medium" ;;
+  pi)     install_for pi     "" "" ;;
+  hermes) install_for hermes "" "" ;;
   all)
     install_for claude "$claude_low" "$claude_medium"
     install_for codex  "$codex_low"  "$codex_medium"
@@ -184,23 +193,45 @@ done
 
 # ── Obsidian plugin ──────────────────────────────────────────────────────────
 
-if [[ $OBSIDIAN -eq 1 ]]; then
+# `vault:` from the Meridian config, without quotes or trailing space.
+read_config_vault() {
+  [[ -f "${CONFIG_DIR}/config.md" ]] || return 0
+  sed -n 's/^vault:[[:space:]]*//p' "${CONFIG_DIR}/config.md" \
+    | head -n 1 \
+    | tr -d '\r' \
+    | sed -e 's/[[:space:]]*$//' -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'$/\1/"
+}
+
+install_obsidian_plugin() {
+  local vault="$1" f dst
   for f in manifest.json main.js styles.css; do
     [[ -f "${SRC}/plugin/${f}" ]] || die "not a Meridian checkout (missing plugin/${f}): ${SRC}"
   done
-  if [[ -z "$OBSIDIAN_VAULT" && -f "${CONFIG_DIR}/config.md" ]]; then
-    OBSIDIAN_VAULT="$(sed -n 's/^vault:[[:space:]]*//p' "${CONFIG_DIR}/config.md" | head -n 1)"
-  fi
-  [[ -n "$OBSIDIAN_VAULT" ]] || die "--obsidian needs a vault path (argument or 'vault:' in ${CONFIG_DIR}/config.md)"
-  [[ -d "${OBSIDIAN_VAULT}/.obsidian" ]] || die "not an Obsidian vault (no .obsidian folder): ${OBSIDIAN_VAULT}"
-  PLUGIN_DST="${OBSIDIAN_VAULT}/.obsidian/plugins/meridian"
-  echo "Installing the Obsidian plugin -> ${PLUGIN_DST}"
-  act mkdir -p "$PLUGIN_DST"
+  [[ -n "$vault" ]] || die "--obsidian needs a vault path (argument or 'vault:' in ${CONFIG_DIR}/config.md)"
+  [[ -d "${vault}/.obsidian" ]] || die "not an Obsidian vault (no .obsidian folder): ${vault}"
+  dst="${vault}/.obsidian/plugins/meridian"
+  echo "Installing the Obsidian plugin -> ${dst}"
+  act mkdir -p "$dst"
   for f in manifest.json main.js styles.css; do
-    act install -m 0644 "${SRC}/plugin/${f}" "${PLUGIN_DST}/${f}"
+    act install -m 0644 "${SRC}/plugin/${f}" "${dst}/${f}"
     echo "  + ${f}"
   done
   echo "  Enable it in Obsidian: Settings > Community plugins > Meridian (reload the app first)."
+}
+
+if [[ $OBSIDIAN -eq 1 ]]; then
+  [[ -n "$OBSIDIAN_VAULT" ]] || OBSIDIAN_VAULT="$(read_config_vault)"
+  install_obsidian_plugin "$OBSIDIAN_VAULT"
+else
+  OBSIDIAN_VAULT="$(read_config_vault)"
+  if [[ -z "$OBSIDIAN_VAULT" ]]; then
+    echo "Obsidian plugin skipped: no vault in ${CONFIG_DIR}/config.md."
+    echo "  Pass --obsidian <vault>, or run install again after /mdn-init."
+  elif [[ ! -d "${OBSIDIAN_VAULT}/.obsidian" ]]; then
+    echo "Obsidian plugin skipped: ${OBSIDIAN_VAULT} has no .obsidian folder."
+  else
+    install_obsidian_plugin "$OBSIDIAN_VAULT"
+  fi
 fi
 
 # ── Done ─────────────────────────────────────────────────────────────────────

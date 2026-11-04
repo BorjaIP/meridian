@@ -56,7 +56,7 @@ What is not guaranteed:
 ## Requirements
 
 - An Obsidian vault (any folder of Markdown works; Obsidian is only the viewer).
-- [Claude Code](https://claude.com/claude-code) with [gentle-ai](https://github.com/Gentleman-Programming/gentle-ai) v4.0.0 or later for `/mdn-run`. SDD was retired in v4 and ODD is the default workflow, which `/mdn-run` relies on. Codex gets the skills installed, but the ODD flow is only designed for Claude Code with gentle-ai.
+- [Claude Code](https://claude.com/claude-code) with [gentle-ai](https://github.com/Gentleman-Programming/gentle-ai) v4.0.0 or later for `/mdn-run`. SDD was retired in v4 and ODD is the default workflow, which `/mdn-run` relies on. Codex, Pi and Hermes get the skills installed, but the ODD flow is only designed for Claude Code with gentle-ai (Pi has a gentle-ai integration; Hermes has none, so there `/mdn-run` runs the work directly in the session).
 - `git` (required by `/mdn-run`); `gh` optional, for the pull request field.
 - bash, awk, sed, grep and coreutils for the helper scripts (the lint script was tested with gawk). Links to repository documents are Windows UNC paths and are meant for WSL; elsewhere they are plain text pointers.
 
@@ -75,13 +75,14 @@ bash install.sh --source . --dry-run
 bash install.sh --source .
 ```
 
-Options: `--tool claude|codex|all`, `--source <dir>`, `--obsidian [<vault>]`, `--dry-run`. The installer is idempotent. It writes:
+Options: `--tool claude|codex|pi|hermes|all` (`all` is Claude Code and Codex), `--source <dir>`, `--obsidian [<vault>]`, `--dry-run`. The installer is idempotent. It writes:
 
 | What | Where |
 |---|---|
-| Skills | `~/.claude/skills/mdn-*/` (and `~/.codex/skills/` for Codex) |
+| Skills | `~/.claude/skills/mdn-*/` (and `~/.codex/skills/` for Codex, `$PI_CODING_AGENT_DIR/skills/` or `~/.pi/agent/skills/` for Pi, `$HERMES_HOME/skills/` or `~/.hermes/skills/` for Hermes) |
 | Helper scripts (`mdn-lint.sh`, `mdn-trace.sh`, `mdn-migrate.sh`, `mdn-log.sh`, `mdn-index.sh`) | `~/.config/meridian/scripts/` |
 | Templates | `~/.config/meridian/templates/` |
+| Obsidian board plugin | `<vault>/.obsidian/plugins/meridian/` when `vault:` in the config points at an Obsidian vault |
 
 Skills from older Meridian versions that no longer exist are moved (not deleted) to `~/.config/meridian/retired-skills-<date>/`, together with a backup of any installed skill it overwrites.
 
@@ -91,11 +92,13 @@ Open a new Claude Code session after installing or updating: a running session k
 
 An optional Obsidian plugin shows every project and task as a board: totals, tasks by status with expandable details, project progress, the review queue and recent activity. It reads the `project.md` notes of your vault; nothing leaves Markdown. The **Add task** button is the only thing it writes: it adds a task of your own (`owner::me`, `status::backlog`) to the end of the chosen project's `## Tasks`, with no AI involved. Agent work still goes through `/mdn-run`.
 
+A normal install copies `manifest.json`, `main.js` and `styles.css` from `plugin/` into `<vault>/.obsidian/plugins/meridian/`, using `vault:` from `~/.config/meridian/config.md`. It skips the plugin when that file has no vault yet, or when the folder has no `.obsidian` directory; run install again after `/mdn-init`, or pass a vault explicitly:
+
 ```bash
-bash install.sh --source . --obsidian /path/to/vault   # or --obsidian alone to use `vault:` from the config
+bash install.sh --source . --obsidian /path/to/vault
 ```
 
-This copies `manifest.json`, `main.js` and `styles.css` from `plugin/` to `<vault>/.obsidian/plugins/meridian/`. It does not enable the plugin: reload Obsidian, then turn on **Meridian** under Settings > Community plugins (restricted mode must be off). Open the board from the ribbon icon or the command "Meridian: Open board". Settings: the Meridian folder (default `meridian`) and an optional name for the greeting.
+It does not enable the plugin: reload Obsidian, then turn on **Meridian** under Settings > Community plugins (restricted mode must be off). Open the board from the ribbon icon or the command "Meridian: Open board". Settings: the Meridian folder (default `meridian`) and an optional name for the greeting. Existing plugin settings in `data.json` are left as they are.
 
 ## Quick start
 
@@ -128,10 +131,10 @@ Every command other than `/mdn-init` checks that Meridian is initialized and, if
 
 ## Limits
 
-- The Markdown protocol is agent-agnostic; the installers are not. Only Claude Code and Codex installers exist.
+- The Markdown protocol is agent-agnostic; the installers are not. Installers exist for Claude Code, Codex, Pi and Hermes. In Pi the skill command is `/skill:mdn-run`; in Hermes it is `/mdn-run`.
 - Skills are instructions for a model. How faithfully they are followed depends on the model; the scripts and `mdn-lint.sh` exist to check the parts that can be checked mechanically.
 - Metadata comes from git and `gh`, not from the model's account of itself.
-- The one-line `curl` install and the Codex installer have not been run end to end; the tested install path is a local checkout with `--source`.
+- The one-line `curl` install and the Codex, Pi and Hermes installers have not been run end to end; the tested install path is a local checkout with `--source`.
 - The `/mdn-run` flow was validated end to end in a sandbox and on the author's own vault. It has not been verified in a fresh session by other people, and it has no automated tests.
 - The flow diagram was rendered and checked by eye only, in a rasterizer with a fallback font; the intended fonts and GitHub's rendering were not checked.
 - The vault and the repository are separate: the vault holds pointers, the `odd/` documents live in the repository.

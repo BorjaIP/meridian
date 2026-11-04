@@ -11,6 +11,7 @@ fail=0
 pass() { printf 'ok   %s\n' "$1"; }
 bad()  { printf 'FAIL %s\n' "$1"; fail=$((fail + 1)); }
 
+unset PI_CODING_AGENT_DIR HERMES_HOME
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
@@ -101,6 +102,24 @@ h="$(newhome)"; run_install "$h" --tool all
 [ "$rc" -eq 0 ] && [ -s "$h/.claude/skills/mdn-run/SKILL.md" ] && [ -s "$h/.codex/skills/mdn-run/SKILL.md" ] \
   && pass "--tool all installs both" || bad "--tool all wrong (rc=$rc)"
 
+h="$(newhome)"; run_install "$h" --tool pi
+ok=1; for s in "${skills[@]}"; do [ -s "$h/.pi/agent/skills/$s/SKILL.md" ] || ok=0; done
+[ "$rc" -eq 0 ] && [ "$ok" -eq 1 ] && [ ! -e "$h/.claude" ] && [ ! -e "$h/.hermes" ] && pass "--tool pi writes only ~/.pi/agent/skills" || bad "--tool pi wrong (rc=$rc)"
+! grep -q '^model:' "$h/.pi/agent/skills/mdn-run/SKILL.md" && grep -q '^name: mdn-run$' "$h/.pi/agent/skills/mdn-run/SKILL.md" \
+  && pass "pi skills drop the model hint and keep the frontmatter" || bad "pi skill still has a model hint"
+diff <(grep -v '^model: ' "$root/skills/mdn-run/SKILL.md") "$h/.pi/agent/skills/mdn-run/SKILL.md" >/dev/null \
+  && pass "pi skill body is the source minus the model hint" || bad "pi skill body differs from the source"
+h="$(newhome)"; PI_CODING_AGENT_DIR="$work/pi-custom" run_install "$h" --tool pi
+[ -s "$work/pi-custom/skills/mdn-run/SKILL.md" ] && [ ! -e "$h/.pi" ] && pass "--tool pi honors PI_CODING_AGENT_DIR" || bad "PI_CODING_AGENT_DIR ignored"
+h="$(newhome)"; run_install "$h" --tool hermes
+ok=1; for s in "${skills[@]}"; do [ -s "$h/.hermes/skills/$s/SKILL.md" ] || ok=0; done
+[ "$rc" -eq 0 ] && [ "$ok" -eq 1 ] && [ ! -e "$h/.claude" ] && [ ! -e "$h/.pi" ] && pass "--tool hermes writes only ~/.hermes/skills" || bad "--tool hermes wrong (rc=$rc)"
+! grep -q '^model:' "$h/.hermes/skills/mdn-run/SKILL.md" && pass "hermes skills drop the model hint" || bad "hermes skill still has a model hint"
+h="$(newhome)"; HERMES_HOME="$work/hermes-custom" run_install "$h" --tool hermes
+[ -s "$work/hermes-custom/skills/mdn-run/SKILL.md" ] && [ ! -e "$h/.hermes" ] && pass "--tool hermes honors HERMES_HOME" || bad "HERMES_HOME ignored"
+h="$(newhome)"; run_install "$h" --tool all
+[ ! -e "$h/.pi" ] && [ ! -e "$h/.hermes" ] && pass "--tool all leaves pi and hermes alone" || bad "--tool all touched pi or hermes"
+
 # 7. Errors.
 h="$(newhome)"; run_install "$h" --bogus
 [ "$rc" -ne 0 ] && pass "unknown option fails" || bad "unknown option accepted"
@@ -109,9 +128,10 @@ run_install "$h" --tool nope
 run_install "$h" --source "$work/does-not-exist"
 [ "$rc" -ne 0 ] && pass "missing source fails" || bad "missing source accepted"
 
-# 8. Obsidian plugin (--obsidian).
+# 8. Obsidian plugin.
 h="$(newhome)"; run_install "$h"
-[ ! -e "$h/.obsidian" ] && pass "plain install installs no plugin" || bad "plain install touched an Obsidian folder"
+[ "$rc" -eq 0 ] && [ ! -e "$h/.obsidian" ] && printf '%s' "$out" | grep -q "Obsidian plugin skipped: no vault" \
+  && pass "plain install without a vault skips the plugin" || bad "plain install without a vault wrong (rc=$rc): $out"
 v="$work/vault"; mkdir -p "$v/.obsidian"
 h="$(newhome)"; run_install "$h" --obsidian "$v"
 ok=1; for f in manifest.json main.js styles.css; do [ -s "$v/.obsidian/plugins/meridian/$f" ] || ok=0; done
@@ -129,5 +149,38 @@ h="$(newhome)"; run_install "$h" --obsidian
 v3="$work/vault3"; mkdir -p "$v3/.obsidian"
 h="$(newhome)"; run_install "$h" --obsidian "$v3" --dry-run
 [ ! -e "$v3/.obsidian/plugins" ] && pass "--obsidian --dry-run writes nothing" || bad "--obsidian --dry-run wrote files"
+
+v4="$work/vault4"; mkdir -p "$v4/.obsidian"
+h="$(newhome)"; mkdir -p "$h/.config/meridian"
+printf -- '---\nvault: "%s"\n---\n' "$v4" > "$h/.config/meridian/config.md"
+run_install "$h"
+ok=1; for f in manifest.json main.js styles.css; do [ -s "$v4/.obsidian/plugins/meridian/$f" ] || ok=0; done
+[ "$rc" -eq 0 ] && [ "$ok" -eq 1 ] && pass "plain install uses the config vault" || bad "plain install did not use the config vault (rc=$rc): $out"
+cmp -s "$root/plugin/main.js" "$v4/.obsidian/plugins/meridian/main.js" && pass "config-vault main.js matches the checkout" || bad "config-vault main.js differs"
+[ ! -e "$v4/.obsidian/community-plugins.json" ] && pass "config-vault install does not enable the plugin" || bad "config-vault install wrote community-plugins.json"
+printf 'keep' > "$v4/.obsidian/plugins/meridian/data.json"
+before="$(sum "$v4")"; run_install "$h"; after="$(sum "$v4")"
+[ "$rc" -eq 0 ] && [ "$before" = "$after" ] && grep -q keep "$v4/.obsidian/plugins/meridian/data.json" \
+  && pass "second install leaves the plugin and data.json unchanged" || bad "second install changed the plugin tree"
+
+h="$(newhome)"; mkdir -p "$h/.config/meridian"
+v5="$work/not-obsidian"; mkdir -p "$v5"
+printf -- '---\nvault: %s\n---\n' "$v5" > "$h/.config/meridian/config.md"
+run_install "$h"
+[ "$rc" -eq 0 ] && [ ! -e "$v5/.obsidian" ] && printf '%s' "$out" | grep -q "has no .obsidian folder" \
+  && pass "plain install skips a vault without .obsidian" || bad "plain install did not skip a non-vault (rc=$rc): $out"
+
+v6="$work/vault6"; mkdir -p "$v6/.obsidian"
+h="$(newhome)"; mkdir -p "$h/.config/meridian"
+printf -- '---\nvault: %s\n---\n' "$v6" > "$h/.config/meridian/config.md"
+run_install "$h" --dry-run
+[ "$rc" -eq 0 ] && [ ! -e "$v6/.obsidian/plugins" ] && pass "plain install --dry-run writes no plugin" || bad "plain install --dry-run wrote the plugin"
+
+v7="$work/vault7"; other="$work/vault7-other"; mkdir -p "$v7/.obsidian" "$other/.obsidian"
+h="$(newhome)"; mkdir -p "$h/.config/meridian"
+printf -- '---\nvault: %s\n---\n' "$other" > "$h/.config/meridian/config.md"
+run_install "$h" --obsidian "$v7"
+[ "$rc" -eq 0 ] && [ -s "$v7/.obsidian/plugins/meridian/manifest.json" ] && [ ! -e "$other/.obsidian/plugins" ] \
+  && pass "--obsidian path wins over the config vault" || bad "--obsidian path did not win (rc=$rc): $out"
 
 if [ "$fail" -eq 0 ]; then echo "all install tests passed"; else echo "$fail install test(s) failed"; exit 1; fi

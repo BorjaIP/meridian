@@ -46,7 +46,7 @@ There is no approval gate before execution. The human checkpoint is `review`, af
 
 ## Agent-agnostic scope
 
-The note format and its state machine are plain Markdown and can be read or written by any tool; [protocol.md](protocol.md) is the contract. The skills and installers are not agent-agnostic: they exist for Claude Code and Codex, `/mdn-run` assumes the gentle-ai ODD workflow, and skills are instructions whose behavior depends on the model that follows them.
+The note format and its state machine are plain Markdown and can be read or written by any tool; [protocol.md](protocol.md) is the contract. The skills and installers are not agent-agnostic: they exist for Claude Code, Codex, Pi and Hermes, `/mdn-run` assumes the gentle-ai ODD workflow, and skills are instructions whose behavior depends on the model that follows them.
 
 ## Why "Meridian"
 
