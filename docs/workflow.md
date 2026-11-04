@@ -58,6 +58,18 @@ If the session is interrupted, the task stays `in-progress`; `/mdn-run task:<slu
 /mdn-archive     # move done tasks to the monthly log logs/YYYY-MM.md (verbatim, never deleted)
 ```
 
+## 6. Several tasks at once
+
+Independent tasks can run in parallel: one worktree and one Claude Code session per task, so each trace only contains its own commits.
+
+```
+git worktree add -b feat/add-login-rate-limit ../my-app-worktrees/add-login-rate-limit
+cd ../my-app-worktrees/add-login-rate-limit
+/mdn-run task:add-login-rate-limit project:my-app
+```
+
+Repeat in another terminal for the second task. `project:` is required inside a worktree. Each task gets its own branch, `odd/tasks/<slug>.md`, Run and Trace blocks, and its own pull request. Do not parallelize tasks that touch the same files, and remove the worktree with `git worktree remove` once its branch is merged.
+
 ## Requirements recap
 
 `/mdn-run` needs a git repository and, for real execution, Claude Code with gentle-ai v4 (ODD). Links to `odd/` documents are UNC paths for WSL.

@@ -22,7 +22,7 @@ description: >
 | Form | Meaning |
 |---|---|
 | `"<description>"` | Create a new task and run it. Defaults: `priority::medium`, `type` inferred. |
-| `task:<slug>` | Run an existing `owner::agent` task in `backlog`, or resume one `in-progress`. |
+| `task:<slug>` | Run an existing task in `backlog` (`owner::agent`, or `owner::me` handed over to the agent), or resume one `in-progress`. |
 | `next` | First `owner::agent status::backlog` task in the project. |
 
 The format of the project note and its blocks is defined in `docs/protocol.md`. Primitives used below: READ, GREP, EDIT (inline field or checkbox), INSERT (block after a line), WRITE.
@@ -51,18 +51,18 @@ Cross-project commands (`/mdn-daily`, `/mdn-status`) only require the config and
 ### 1. Resolve config, project and repo
 
 1. READ `${XDG_CONFIG_HOME:-$HOME/.config}/meridian/config.md`; take `vault:`. Take the optional `delivery:` value (a free-text sentence such as "single PR; I accept size:exception"). (The init guard guarantees the config exists.)
-2. Project: the `project:` argument; otherwise the project whose frontmatter `repo:` equals `git rev-parse --show-toplevel` of the current directory. If several or none match, ask once which project.
+2. Project: the `project:` argument; otherwise the project whose frontmatter `repo:` equals `git rev-parse --show-toplevel` of the current directory. If several or none match, ask once which project. Inside a linked worktree the toplevel never equals `repo:`, so the `project:` argument is required there (see Parallel runs).
 3. READ `<vault>/meridian/<project>/project.md` and verify `project:` in the frontmatter.
-4. Repository: the note's `repo:`; otherwise the current git toplevel. If neither exists, ask the user once for the path and stop until answered.
+4. Repository: the current git toplevel when it is a linked worktree of the note's `repo:` (same `git rev-parse --git-common-dir`); otherwise the note's `repo:`; otherwise the current git toplevel. If none exists, ask the user once for the path and stop until answered.
 5. Resolve `mdn-trace.sh`, `mdn-lint.sh` and `mdn-log.sh`: look in `~/.config/meridian/scripts/` first, then in the `scripts/` folder of the Meridian repository. If `mdn-trace.sh` or `mdn-lint.sh` is not found, continue and say which check was skipped. Logging rule: all `mdn-log.sh event <vault>/meridian/<project> ...` calls below. If it is missing or fails, print a one-line warning and continue; logging must never fail or block the command.
 
 ### 2. Select the task
 
 - **New description:** derive a kebab-case slug (2 to 5 words, `^[a-z0-9]+(-[a-z0-9]+)*$`) and make it unique: GREP `slug::<slug>` in the note, and check that `<repo>/odd/tasks/<slug>.md` does not exist; on collision append `-2`, `-3`.
-- **`task:<slug>`:** GREP the task line. It must be `owner::agent` and `backlog` or `in-progress`. Otherwise report its state and stop.
+- **`task:<slug>`:** GREP the task line. It must be `owner::agent` or `owner::me`, and `backlog` or `in-progress`. Otherwise report its state and stop. Naming an `owner::me` task is the human handing it to the agent.
 - **`next`:** first `owner::agent status::backlog` line. If none, report that and stop.
 
-An `in-progress` task with a `**Run:**` block is a **resume**: keep its original `started` and `base`, skip step 3 except its log item (`run-started <slug> resumed`), and tell ODD to resume the feature `<slug>` ("retoma la feature <slug>").
+An `in-progress` task with a `**Run:**` block is a **resume**: keep its original `started` and `base`, skip step 3 except its log item (`run-started <slug> resumed`) and, when the task is `owner::me`, an EDIT of `owner::me` to `owner::agent`, and tell ODD to resume the feature `<slug>` ("retoma la feature <slug>").
 
 ### 3. Start: record before executing
 
@@ -70,7 +70,7 @@ An `in-progress` task with a `**Run:**` block is a **resume**: keep its original
 2. If `git status --porcelain` shows uncommitted or untracked changes other than under `.atl/` and `odd/` (tooling folders, not user work), record `dirty tree at start` in a `**Note:**` line. Do not stash, reset or clean anything.
 3. Write the task to `project.md`:
    - New task: append under `## Tasks` the line `- [ ] #task owner::agent status::in-progress priority::<p> type::<t> slug::<slug>` with `**Title:**` and `**Description:**` (and `**Acceptance:**` when the user gave one).
-   - Existing backlog task: EDIT `status::backlog` to `status::in-progress`.
+   - Existing backlog task: EDIT `status::backlog` to `status::in-progress`; when it is `owner::me`, also EDIT `owner::me` to `owner::agent`.
    - Add `  **Run:** started <started> · ended · repo <repo> · branch <branch> · base <base>` after the existing blocks.
 
    **Text safety.** Before writing any title, description, acceptance, note or reason into a vault note or log, wrap every tag-like placeholder such as `<branch-name>`, `<name>` or `</x>` in backticks, unless it is already inside backticks. Obsidian reads a bare `<word>` as an unclosed HTML tag and stops rendering everything below it. Plain text like `a < b` needs no change. `mdn-log.sh` applies this rule to log text by itself; `mdn-lint.sh` reports any that slipped through. This applies to the Title, Description and Acceptance written here and to every `**Note:**` reason (step 5.4).
@@ -83,6 +83,8 @@ Do the work in this thread. The gentle-ai ODD workflow applies automatically; tr
 
 - "Use `<slug>` as the ODD feature name (`odd/tasks/<slug>.md`)."
 - The `delivery:` sentence from the config, verbatim, when present.
+
+When this tool has no gentle-ai ODD workflow, do the work directly in this thread: explore first, use `<slug>` as the working name, make work-unit commits, and say in the `**Note:**` that ODD was not available.
 
 Follow ODD as it dictates (exploration, task document, tests, work-unit commits). Do not push or open a pull request unless the user or ODD's delivery strategy says so.
 
@@ -107,6 +109,28 @@ Run `mdn-trace.sh finish <repo> <base> <snapshot-file> --slug <slug> --pr` (use 
 ### 6. Report
 
 Reply briefly: task title and slug, final status, what changed in one or two lines, and the trace (odd document path, commits, diffstat, PR). Say that the task is waiting for the human review and that `/mdn-done` (or editing the note) closes it.
+
+## Parallel runs
+
+Independent tasks can run at the same time: one Claude Code session and one git worktree per task, each started with its own command. Never run two tasks in the same working tree: `mdn-trace.sh` derives commits and diffstat from that tree's HEAD, so the traces would mix.
+
+The user prepares each task from the main checkout, with the worktree outside the repository folder:
+
+```
+git worktree add -b feat/<slug> ../<repo>-worktrees/<slug>
+cd ../<repo>-worktrees/<slug>
+/mdn-run task:<slug> project:<project>
+```
+
+When the session runs inside a linked worktree:
+
+- `project:` is mandatory. Without it the init guard would take the worktree folder name as the project and create a wrong one; if it is missing, ask once for the project and stop.
+- The repository for `mdn-trace.sh` is the worktree (step 1.4), so `branch`, `base`, commits and diffstat describe only this task.
+- Edit only the lines of your own task in `project.md`. Re-read the note right before each edit and never rewrite the whole file: other sessions edit other tasks of the same note.
+- Each task keeps its own slug, so its `odd/tasks/<slug>.md`, branch, Run and Trace stay separate. Every branch is its own pull request; the human decides the merge order.
+- Refuse to start when another task of the note is `in-progress` with a `**Run:**` block whose `branch` equals the current branch: that worktree is already taken. In-progress tasks on other branches do not count.
+- Parallel runs are for tasks that do not touch the same files. If two tasks overlap, tell the user and suggest running them one after the other.
+- After the branch is merged the human removes the worktree with `git worktree remove`.
 
 ## Edge cases
 

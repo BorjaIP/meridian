@@ -29,7 +29,7 @@ Records a `backlog` task and nothing else. Defaults: `owner::agent`, `priority::
 /mdn-run next
 ```
 
-The single trigger of the flow. Writes the task as `in-progress` with a `**Run:**` block first, runs the work through ODD in the main thread (slug as the ODD feature name, `delivery` from the config), then fills the Run end and the `**Trace:**` block from git and `gh` via `mdn-trace.sh` and sets `review`. `task:<slug>` starts a backlog task or resumes an interrupted `in-progress` one (keeping the original start and base); `next` takes the first agent task in `backlog`. It never sets `done`, never toggles receipt-driven development, and does not push. Needs git and, for the work itself, Claude Code with gentle-ai ODD.
+The single trigger of the flow. Writes the task as `in-progress` with a `**Run:**` block first, runs the work through ODD in the main thread (slug as the ODD feature name, `delivery` from the config), then fills the Run end and the `**Trace:**` block from git and `gh` via `mdn-trace.sh` and sets `review`. `task:<slug>` starts a backlog task or resumes an interrupted `in-progress` one (keeping the original start and base); a task of yours (`owner::me`) becomes `owner::agent` when you name it, so one task covers the whole job; `next` takes the first agent task in `backlog`. It never sets `done`, never toggles receipt-driven development, and does not push. Needs git and, for the work itself, Claude Code with gentle-ai ODD.
 
 ## /mdn-done
 
