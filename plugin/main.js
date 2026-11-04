@@ -251,6 +251,25 @@ function addTask(text, input) {
   return { slug, text: lines.join(eol) };
 }
 
+function runCommand(t) {
+  return t.status === "backlog" || t.status === "in-progress" ? "/mdn-run task:" + t.slug + " project:" + t.project : "";
+}
+
+function removeTask(text, slug) {
+  const eol = text.includes("\r\n") ? "\r\n" : "\n";
+  const lines = text.split(/\r?\n/);
+  const start = lines.findIndex((l) => /^- \[( |x|X)\] #task\b/.test(l) && l.split(/\s+/).includes("slug::" + slug));
+  if (start < 0) throw new Error("Task not found: " + slug);
+  if (!lines[start].split(/\s+/).includes("owner::me")) throw new Error("Only your own tasks can be deleted");
+  if (lines[start].split(/\s+/).includes("status::in-progress")) throw new Error("A task in progress cannot be deleted");
+  let end = start + 1;
+  while (end < lines.length && !/^\S/.test(lines[end])) end++;
+  while (end - 1 > start && !lines[end - 1].trim()) end--;
+  lines.splice(start, end - start);
+  if (start > 0 && !lines[start - 1].trim() && (start >= lines.length || !lines[start].trim())) lines.splice(start, 1);
+  return lines.join(eol);
+}
+
 // ---------------------------------------------------------------- plugin
 
 class MeridianPlugin extends Plugin {
@@ -429,6 +448,17 @@ class BoardView extends ItemView {
     }).open();
   }
 
+  deleteTask(t) {
+    new ConfirmDeleteModal(this.app, t.title, async () => {
+      const file = this.app.vault.getAbstractFileByPath(t.path);
+      if (!file) throw new Error("Project note not found: " + t.path);
+      await this.app.vault.process(file, (data) => removeTask(data, t.slug));
+      this.expanded.delete(t.path + "#" + t.slug);
+      new Notice("Task deleted: " + t.slug);
+      await this.refresh();
+    }).open();
+  }
+
   statCards(parent, stats) {
     const row = parent.createDiv({ cls: "mdn-stats" });
     const card = (label, value, sub, tone, icon) => {
@@ -498,6 +528,21 @@ class BoardView extends ItemView {
     field("Description", t.description);
     field("Acceptance", t.acceptance);
     field("Note", t.note);
+    const command = runCommand(t);
+    if (command) {
+      const f = d.createDiv({ cls: "mdn-field" });
+      f.createDiv({ cls: "mdn-field-label", text: "Command" });
+      const cmd = f.createDiv({ cls: "mdn-cmd-row" });
+      const input = cmd.createEl("input", { cls: "mdn-cmd", attr: { type: "text", readonly: "" } });
+      input.value = command;
+      input.onfocus = () => input.select();
+      const copy = cmd.createEl("button", { text: "Copy" });
+      copy.onclick = async (e) => {
+        e.stopPropagation();
+        await navigator.clipboard.writeText(command);
+        new Notice("Command copied");
+      };
+    }
     const facts = [];
     if (t.run.branch) facts.push("branch " + t.run.branch);
     if (t.run.started) facts.push("started " + t.run.started);
@@ -511,6 +556,13 @@ class BoardView extends ItemView {
       const file = this.app.vault.getAbstractFileByPath(t.path);
       if (file) await this.app.workspace.getLeaf("tab").openFile(file, { eState: { line: t.line } });
     };
+    if (t.owner === "me" && t.status !== "in-progress") {
+      const del = d.createEl("button", { cls: "mdn-delete", text: "Delete task" });
+      del.onclick = (e) => {
+        e.stopPropagation();
+        this.deleteTask(t);
+      };
+    }
   }
 
   progressCard(parent) {
@@ -651,6 +703,38 @@ class AddTaskModal extends Modal {
   }
 }
 
+class ConfirmDeleteModal extends Modal {
+  constructor(app, title, onConfirm) {
+    super(app);
+    this.title = title;
+    this.onConfirm = onConfirm;
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.addClass("mdn-modal");
+    contentEl.createEl("h2", { text: "Delete this task?" });
+    richText(contentEl.createDiv({ cls: "mdn-modal-hint" }), this.title);
+    contentEl.createDiv({ cls: "mdn-modal-hint", text: "It is removed from the project note. This cannot be undone from the board." });
+    this.error = contentEl.createDiv({ cls: "mdn-modal-error" });
+    const row = contentEl.createDiv({ cls: "modal-button-container" });
+    const ok = row.createEl("button", { cls: "mod-warning", text: "Delete" });
+    ok.onclick = async () => {
+      try {
+        await this.onConfirm();
+        this.close();
+      } catch (e) {
+        this.error.setText(String(e && e.message ? e.message : e));
+      }
+    };
+    row.createEl("button", { text: "Cancel" }).onclick = () => this.close();
+  }
+
+  onClose() {
+    this.contentEl.empty();
+  }
+}
+
 // ---------------------------------------------------------------- settings
 
 class MeridianSettings extends PluginSettingTab {
@@ -681,4 +765,4 @@ class MeridianSettings extends PluginSettingTab {
 }
 
 module.exports = MeridianPlugin;
-Object.assign(module.exports, { default: MeridianPlugin, parseProject, summarize, filterTasks, sortTasks, ago, splitCode, slugify, uniqueSlug, safeText, buildTaskBlock, addTask });
+Object.assign(module.exports, { default: MeridianPlugin, parseProject, summarize, filterTasks, sortTasks, ago, splitCode, slugify, uniqueSlug, safeText, buildTaskBlock, addTask, removeTask, runCommand });

@@ -4,7 +4,7 @@
 const assert = require("assert");
 const fs = require("fs");
 const path = require("path");
-const { parseProject, summarize, filterTasks, splitCode, slugify, uniqueSlug, safeText, buildTaskBlock, addTask } = require("../plugin/main.js");
+const { parseProject, summarize, filterTasks, splitCode, slugify, uniqueSlug, safeText, buildTaskBlock, addTask, removeTask, runCommand } = require("../plugin/main.js");
 const { execFileSync, spawnSync } = require("child_process");
 const os = require("os");
 
@@ -165,6 +165,51 @@ t("the written note passes mdn-lint.sh", () => {
   assert.strictEqual(out.status, 0, out.stdout + out.stderr);
   assert.strictEqual((out.stdout + out.stderr).trim(), "");
   fs.rmSync(tmp, { recursive: true });
+});
+
+const mine = "- [ ] #task owner::me status::backlog priority::low type::chore slug::buy-milk\n  **Title:** Buy milk\n  **Description:** Two litres\n";
+const agentTask = "- [ ] #task owner::agent status::backlog priority::low type::chore slug::agent-job\n  **Title:** Agent job\n";
+
+t("removeTask deletes a middle task and leaves a single blank line", () => {
+  const text = "# P\n\n## Tasks\n\n" + mine + "\n" + agentTask + "\n## Notes\n\nhello\n";
+  assert.strictEqual(removeTask(text, "buy-milk"), "# P\n\n## Tasks\n\n" + agentTask + "\n## Notes\n\nhello\n");
+});
+
+t("removeTask deletes the last task and the trailing blank line", () => {
+  const text = "# P\n\n## Tasks\n\n" + agentTask + "\n" + mine;
+  assert.strictEqual(removeTask(text, "buy-milk"), "# P\n\n## Tasks\n\n" + agentTask);
+});
+
+t("removeTask before a following section keeps one blank line", () => {
+  const text = "# P\n\n## Tasks\n\n" + mine + "\n## Notes\n\nhello\n";
+  assert.strictEqual(removeTask(text, "buy-milk"), "# P\n\n## Tasks\n\n## Notes\n\nhello\n");
+});
+
+t("removeTask refuses agent tasks and unknown slugs, and does not match prefixes", () => {
+  const text = mine + "\n" + agentTask;
+  assert.throws(() => removeTask(text, "agent-job"), /own tasks/);
+  assert.throws(() => removeTask(text, "nope"), /not found/);
+  assert.throws(() => removeTask(text, "buy"), /not found/);
+});
+
+t("removeTask round-trips with addTask and keeps CRLF notes intact", () => {
+  const added = addTask(base, { title: "Renew passport" });
+  assert.strictEqual(removeTask(added.text, added.slug), base.replace(/\s+$/, "") + "\n");
+  const crlf = ("# P\n\n## Tasks\n\n" + mine + "\n" + agentTask).replace(/\n/g, "\r\n");
+  const out = removeTask(crlf, "buy-milk");
+  assert.ok(!/[^\r]\n/.test(out), "line endings stay CRLF");
+  assert.deepStrictEqual(parseProject(out, "p", "p").tasks.map((x) => x.slug), ["agent-job"]);
+});
+
+t("removeTask refuses a task that is in progress", () => {
+  const running = mine.replace("status::backlog", "status::in-progress");
+  assert.throws(() => removeTask(running, "buy-milk"), /in progress/);
+});
+
+t("runCommand gives the /mdn-run line only for tasks the agent can run", () => {
+  assert.strictEqual(runCommand({ slug: "buy-milk", project: "atlas", status: "backlog" }), "/mdn-run task:buy-milk project:atlas");
+  assert.strictEqual(runCommand({ slug: "a", project: "p", status: "in-progress" }), "/mdn-run task:a project:p");
+  for (const status of ["review", "done", "blocked"]) assert.strictEqual(runCommand({ slug: "a", project: "p", status }), "");
 });
 
 console.log("plugin tests passed (" + n + ")");

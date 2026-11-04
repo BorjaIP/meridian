@@ -64,6 +64,9 @@
 .mdn-field-label { font-size: var(--font-ui-smaller); text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-faint); }
 .mdn-field-text { white-space: pre-wrap; color: var(--text-normal); }
 .mdn-facts { color: var(--text-faint); margin-bottom: 10px; }
+.mdn-cmd-row { display: flex; gap: 8px; align-items: center; }
+.mdn-cmd { flex: 1; font-family: var(--font-monospace); font-size: var(--font-ui-smaller); }
+.mdn-delete { margin-left: 8px; color: var(--color-red); }
 
 .mdn-table { padding-bottom: 6px; }
 .mdn-tr { display: grid; grid-template-columns: 1.6fr 0.9fr 1.6fr 0.6fr 0.6fr; align-items: center; gap: 12px; padding: 10px 18px; border-top: 1px solid var(--background-modifier-border); }
