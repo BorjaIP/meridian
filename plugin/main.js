@@ -255,13 +255,29 @@ function runCommand(t) {
   return t.status === "backlog" || t.status === "in-progress" ? "/mdn-run task:" + t.slug + " project:" + t.project : "";
 }
 
+function findOwnTask(lines, slug) {
+  const start = lines.findIndex((l) => /^- \[( |x|X)\] #task\b/.test(l) && l.split(/\s+/).includes("slug::" + slug));
+  if (start < 0) throw new Error("Task not found: " + slug);
+  const tokens = lines[start].split(/\s+/);
+  if (!tokens.includes("owner::me")) throw new Error("Only your own tasks can be changed");
+  return { start, tokens };
+}
+
+function markDone(text, slug) {
+  const eol = text.includes("\r\n") ? "\r\n" : "\n";
+  const lines = text.split(/\r?\n/);
+  const { start, tokens } = findOwnTask(lines, slug);
+  const status = (tokens.find((t) => t.startsWith("status::")) || "").slice(8);
+  if (!["backlog", "in-progress", "review"].includes(status)) throw new Error("Only backlog, in-progress or review tasks can be marked done");
+  lines[start] = lines[start].replace(/^- \[ \]/, "- [x]").replace(/\bstatus::\S+/, "status::done");
+  return lines.join(eol);
+}
+
 function removeTask(text, slug) {
   const eol = text.includes("\r\n") ? "\r\n" : "\n";
   const lines = text.split(/\r?\n/);
-  const start = lines.findIndex((l) => /^- \[( |x|X)\] #task\b/.test(l) && l.split(/\s+/).includes("slug::" + slug));
-  if (start < 0) throw new Error("Task not found: " + slug);
-  if (!lines[start].split(/\s+/).includes("owner::me")) throw new Error("Only your own tasks can be deleted");
-  if (lines[start].split(/\s+/).includes("status::in-progress")) throw new Error("A task in progress cannot be deleted");
+  const { start, tokens } = findOwnTask(lines, slug);
+  if (tokens.includes("status::in-progress")) throw new Error("A task in progress cannot be deleted");
   let end = start + 1;
   while (end < lines.length && !/^\S/.test(lines[end])) end++;
   while (end - 1 > start && !lines[end - 1].trim()) end--;
@@ -448,6 +464,22 @@ class BoardView extends ItemView {
     }).open();
   }
 
+  async completeTask(t) {
+    const file = this.app.vault.getAbstractFileByPath(t.path);
+    if (!file) {
+      new Notice("Project note not found: " + t.path);
+      return;
+    }
+    try {
+      await this.app.vault.process(file, (data) => markDone(data, t.slug));
+    } catch (e) {
+      new Notice(String(e && e.message ? e.message : e));
+      return;
+    }
+    new Notice("Task done: " + t.slug);
+    await this.refresh();
+  }
+
   deleteTask(t) {
     new ConfirmDeleteModal(this.app, t.title, async () => {
       const file = this.app.vault.getAbstractFileByPath(t.path);
@@ -556,6 +588,15 @@ class BoardView extends ItemView {
       const file = this.app.vault.getAbstractFileByPath(t.path);
       if (file) await this.app.workspace.getLeaf("tab").openFile(file, { eState: { line: t.line } });
     };
+    if (t.owner === "me" && ["backlog", "in-progress", "review"].includes(t.status)) {
+      const done = d.createEl("button", { cls: "mdn-done", text: "Done" });
+      done.onclick = async (e) => {
+        e.stopPropagation();
+        done.disabled = true;
+        await this.completeTask(t);
+        done.disabled = false;
+      };
+    }
     if (t.owner === "me" && t.status !== "in-progress") {
       const del = d.createEl("button", { cls: "mdn-delete", text: "Delete task" });
       del.onclick = (e) => {
@@ -765,4 +806,4 @@ class MeridianSettings extends PluginSettingTab {
 }
 
 module.exports = MeridianPlugin;
-Object.assign(module.exports, { default: MeridianPlugin, parseProject, summarize, filterTasks, sortTasks, ago, splitCode, slugify, uniqueSlug, safeText, buildTaskBlock, addTask, removeTask, runCommand });
+Object.assign(module.exports, { default: MeridianPlugin, parseProject, summarize, filterTasks, sortTasks, ago, splitCode, slugify, uniqueSlug, safeText, buildTaskBlock, addTask, removeTask, markDone, runCommand });

@@ -4,7 +4,7 @@
 const assert = require("assert");
 const fs = require("fs");
 const path = require("path");
-const { parseProject, summarize, filterTasks, splitCode, slugify, uniqueSlug, safeText, buildTaskBlock, addTask, removeTask, runCommand } = require("../plugin/main.js");
+const { parseProject, summarize, filterTasks, splitCode, slugify, uniqueSlug, safeText, buildTaskBlock, addTask, removeTask, markDone, runCommand } = require("../plugin/main.js");
 const { execFileSync, spawnSync } = require("child_process");
 const os = require("os");
 
@@ -204,6 +204,37 @@ t("removeTask round-trips with addTask and keeps CRLF notes intact", () => {
 t("removeTask refuses a task that is in progress", () => {
   const running = mine.replace("status::backlog", "status::in-progress");
   assert.throws(() => removeTask(running, "buy-milk"), /in progress/);
+});
+
+t("markDone closes a task of yours: checkbox and status, nothing else", () => {
+  for (const from of ["backlog", "in-progress", "review"]) {
+    const text = "# P\n\n## Tasks\n\n" + mine.replace("status::backlog", "status::" + from) + "\n" + agentTask;
+    const out = markDone(text, "buy-milk");
+    assert.strictEqual(out, text.replace("- [ ] #task owner::me status::" + from, "- [x] #task owner::me status::done"));
+  }
+});
+
+t("markDone refuses agent tasks, closed tasks, blocked tasks and unknown slugs", () => {
+  assert.throws(() => markDone(agentTask, "agent-job"), /own tasks/);
+  assert.throws(() => markDone(mine, "nope"), /not found/);
+  assert.throws(() => markDone(mine.replace("[ ]", "[x]").replace("status::backlog", "status::done"), "buy-milk"), /marked done/);
+  assert.throws(() => markDone(mine.replace("status::backlog", "status::blocked"), "buy-milk"), /marked done/);
+});
+
+t("markDone round-trips through parseProject, keeps CRLF and passes mdn-lint.sh", () => {
+  const crlf = ("# P\n\n## Tasks\n\n" + mine + "\n" + agentTask).replace(/\n/g, "\r\n");
+  const out = markDone(crlf, "buy-milk");
+  assert.ok(!/[^\r]\n/.test(out), "line endings stay CRLF");
+  const task = parseProject(out, "p", "p").tasks.find((x) => x.slug === "buy-milk");
+  assert.deepStrictEqual([task.status, task.checked, task.owner], ["done", true, "me"]);
+  const lint = path.join(__dirname, "../scripts/mdn-lint.sh");
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "mdn-plugin-"));
+  const f = path.join(tmp, "project.md");
+  const doc = "---\ntitle: P\nproject: p\nstatus: active\nrepo: /x\ntags:\n  - project\n---\n# P\n\n> one line\n\n---\n\n## Tasks\n";
+  fs.writeFileSync(f, markDone(addTask(doc, { title: "First thing" }).text, "first-thing"));
+  const res = spawnSync("bash", [lint, f], { encoding: "utf8" });
+  assert.strictEqual(res.status, 0, res.stdout + res.stderr);
+  fs.rmSync(tmp, { recursive: true });
 });
 
 t("runCommand gives the /mdn-run line only for tasks the agent can run", () => {
